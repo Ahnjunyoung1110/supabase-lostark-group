@@ -49,3 +49,6 @@ next-env.d.ts
 .idea/
 *.swp
 *.swo
+
+# local agent settings
+.claude/settings.local.json
