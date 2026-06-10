@@ -35,7 +35,7 @@ export default function Page({
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">
-                Sorry, something went wrong.
+                오류가 발생했습니다.
               </CardTitle>
             </CardHeader>
             <CardContent>
