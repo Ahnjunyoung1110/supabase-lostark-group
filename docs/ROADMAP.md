@@ -11,20 +11,20 @@
 
 ### 산출물
 
-- [ ] `supabase init` 후 로컬 CLI 환경 셋업
-- [ ] 마이그레이션 파일 (`supabase/migrations/`) — 4개 테이블 생성:
+- [x] `supabase init` 후 로컬 CLI 환경 셋업
+- [x] 마이그레이션 파일 (`supabase/migrations/`) — 4개 테이블 생성:
   - `profiles`, `events`, `event_responses`, `time_proposals`
-- [ ] RLS(Row Level Security) 정책 적용
+- [x] RLS(Row Level Security) 정책 적용
   - 로그인 사용자: 전체 읽기
   - 본인 행만: response upsert, proposal 생성
   - 주최자(`created_by = auth.uid()`)만: event 수정/삭제, proposal 확정/거절
-- [ ] `profiles` 자동 생성 트리거 (`on auth.users insert → insert into profiles`)
-- [ ] Supabase 대시보드에서 **카카오 / 디스코드 OAuth Provider** 설정
-- [ ] 로그인 후 닉네임 설정 온보딩 UI (`/profile`)
+- [x] `profiles` 자동 생성 트리거 (`on auth.users insert → insert into profiles`)
+- [ ] Supabase 대시보드에서 **디스코드 OAuth Provider** 설정 (대시보드 수동 확인 필요)
+- [x] 로그인 후 닉네임 설정/수정 UI (`/profile`)
 
 ### 완료 기준 (DoD)
 
-- 카카오/디스코드로 로그인 → `profiles` 행 자동 생성 확인
+- 디스코드로 로그인 → `profiles` 행 자동 생성 확인
 - Supabase Studio에서 4개 테이블 스키마 및 RLS 정책 활성 확인
 - 비로그인 사용자가 데이터 조회 시 빈 결과 반환(RLS 차단) 확인
 
@@ -40,38 +40,38 @@
 
 ### 산출물
 
-- [ ] **`/`** 랜딩 페이지 (로그인 유도, 기존 스타터 대체)
+- [x] **`/`** 랜딩 페이지 (로그인 유도, 기존 스타터 대체)
   - 모바일 히어로 높이/여백 축소
   - CTA 버튼 모바일 기본 `w-full`, 데스크톱에서만 내용 너비
   - 푸터 중복 테마 스위처 제거 또는 모바일 숨김 처리
-- [ ] **`/events`** 약속 목록
+- [x] **`/events`** 약속 목록
   - 다가오는 약속 / 지난 약속 구분 표시
   - 각 카드에 상태별 인원 수 요약
   - 모바일 헤더는 제목/설명/생성 버튼 세로 스택
   - “약속 만들기” 버튼 모바일 기본 `w-full`
   - 카드 그리드는 모바일 1열 기본, `sm:` 이상에서만 2열 이상 확장
-- [ ] **`/events/new`** 일회성 약속 생성 폼
+- [x] **`/events/new`** 일회성 약속 생성 폼
   - 제목, 설명(선택), 레이드명(선택), 시작 일시
   - 모든 입력/요일 선택/제출 버튼이 360px 폭에서 가로 스크롤 없이 동작
   - 제출 버튼 모바일 기본 `w-full`, 터치 높이 최소 44px
-- [ ] **`/events/[id]`** 약속 상세
+- [x] **`/events/[id]`** 약속 상세
   - 약속 정보 표시
   - **참석 / 불참 / 미정** 응답 버튼 (본인 상태 upsert)
   - 상태별 인원 수 + 멤버 명단 표시
   - 모바일 정보 구조: 핵심 정보 → 내 응답 → 참석 현황 순서 유지
   - 참석/불참/미정 버튼 모바일 기본 `w-full` 또는 3개가 안정적으로 들어가는 그리드
   - 주최자 수정/삭제 버튼 모바일 세로 스택 또는 전체 너비
-- [ ] 주최자에게 약속 삭제/수정 권한 부여
+- [x] 주최자에게 약속 삭제/수정 권한 부여
 
 ### 모바일 퍼스트 리팩터링 체크리스트
 
-- [ ] `app/page.tsx`: 히어로 `py`, 제목 크기, CTA 너비, 기능 카드 간격을 모바일 기준으로 조정
-- [ ] `app/events/page.tsx`: 헤더 `flex`를 모바일 `flex-col items-stretch`로 변경
-- [ ] `components/event-card.tsx`: 제목/뱃지 영역을 모바일 세로 흐름으로 변경하고 카드 터치 영역 확대
-- [ ] `app/events/[id]/page.tsx`: 주최자 액션과 주요 버튼 컨테이너를 모바일 세로 스택으로 변경
-- [ ] `components/response-buttons.tsx`: `size="sm"` 중심을 제거하고 모바일 터치 높이/너비 확보
-- [ ] `components/roster-list.tsx`: 모바일 1열에서 명단이 길어져도 핵심 응답 영역을 밀어내지 않도록 요약 우선 표시 검토
-- [ ] `components/event-form.tsx`: 카드/폼 패딩과 제출 버튼을 모바일 기준으로 재점검
+- [x] `app/page.tsx`: 히어로 `py`, 제목 크기, CTA 너비, 기능 카드 간격을 모바일 기준으로 조정
+- [x] `app/events/page.tsx`: 헤더 `flex`를 모바일 `flex-col items-stretch`로 변경
+- [x] `components/event-card.tsx`: 제목/뱃지 영역을 모바일 세로 흐름으로 변경하고 카드 터치 영역 확대
+- [x] `app/events/[id]/page.tsx`: 주최자 액션과 주요 버튼 컨테이너를 모바일 세로 스택으로 변경
+- [x] `components/response-buttons.tsx`: `size="sm"` 중심을 제거하고 모바일 터치 높이/너비 확보
+- [x] `components/roster-list.tsx`: 모바일 1열에서 명단이 길어져도 핵심 응답 영역을 밀어내지 않도록 요약 우선 표시 검토
+- [x] `components/event-form.tsx`: 카드/폼 패딩과 제출 버튼을 모바일 기준으로 재점검
 
 ### 완료 기준 (DoD)
 
@@ -89,13 +89,13 @@
 
 ### 산출물
 
-- [ ] **`/events/[id]`** 상세에 "시간 변경 제안" 섹션 추가
+- [x] **`/events/[id]`** 상세에 "시간 변경 제안" 섹션 추가
   - 새 일시 + 메모 입력 폼 (로그인 사용자 전체 접근 가능)
   - 제안 목록 표시 (pending / applied / rejected 상태 뱃지)
-- [ ] 주최자에게 **확정 / 거절** 버튼 노출
+- [x] 주최자에게 **확정 / 거절** 버튼 노출
   - 확정 시: `events.scheduled_at` 업데이트 + `event_responses` 전체 `undecided` 초기화
   - 거절 시: proposal 상태만 `rejected`로 변경
-- [ ] 제안/확정 이력 시간순 표시
+- [x] 제안/확정 이력 시간순 표시
 
 ### 완료 기준 (DoD)
 
@@ -110,13 +110,13 @@
 
 ### 산출물
 
-- [ ] **`/events/new`** 폼에 "반복" 토글 추가
+- [x] **`/events/new`** 폼에 "반복" 토글 추가
   - 요일(복수) + 시간 + 종료일(선택) 설정
   - 내부적으로 `recurrence_rule`(iCal RRULE 기반) 저장
-- [ ] 인스턴스 생성 전략 결정 및 구현:
-  - **미리 생성 방식**: 마이그레이션/cron으로 n주치 인스턴스 생성 (단순, Supabase pg_cron 활용)
+- [x] 인스턴스 생성 전략 결정 및 구현:
+  - **미리 생성 방식**: 서버 액션에서 다음 3주치 인스턴스 생성
   - 또는 **조회 시 전개 방식**: 쿼리 시 RRULE 파싱해 가상 인스턴스 반환 (복잡, 유연)
-  - → 친구 그룹 규모라 **미리 생성 방식** 권장
+  - → 친구 그룹 규모라 **미리 생성 방식** 채택
 - [ ] 반복 약속 수정: 이후 전체 / 이 일정만 선택
 - [ ] 반복 약속 종료 처리
 
@@ -133,9 +133,9 @@
 
 ### 산출물
 
-- [ ] `event_responses` 테이블 Realtime 구독 (`/events/[id]` 상세)
+- [x] `event_responses` 테이블 Realtime 구독 (`/events/[id]` 상세)
   - 응답 변경 시 집계·명단 즉시 업데이트
-- [ ] `time_proposals` 테이블 Realtime 구독
+- [x] `time_proposals` 테이블 Realtime 구독
   - 새 제안 등록 / 주최자 확정 즉시 반영
 - [ ] 낙관적 업데이트 (클릭 즉시 UI 반응, 서버 오류 시 롤백)
 
@@ -152,7 +152,7 @@
 
 | 기능 | 설명 |
 |------|------|
-| 인앱 알림 | 새 약속 등록, 시간 변경 확정 시 멤버에게 알림 (카카오/디스코드 웹훅 또는 Web Push) |
+| 인앱 알림 | 새 약속 등록, 시간 변경 확정 시 멤버에게 알림 (디스코드 웹훅 또는 Web Push) |
 | 레이드 인원 제한 | 인원 상한 설정 → 초과 시 자동 마감, 대기 목록 |
 | 후보 시간 투표 | when2meet 방식으로 여러 후보 시간 중 최적 시간 자동 산출 |
 | 캐릭터/직업 표시 | 응답 시 참여 캐릭터 지정, 직업 아이콘 표시 |
