@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Button } from './ui/button';
 import { createClient } from '@/lib/supabase/server';
 import { LogoutButton } from './logout-button';
+import { getDisplayName } from '@/lib/profile';
 
 export async function AuthButton() {
   const supabase = await createClient();
@@ -23,7 +24,7 @@ export async function AuthButton() {
     .eq('id', user.sub)
     .single();
 
-  const displayName = profile?.nickname ?? user.email ?? '사용자';
+  const displayName = getDisplayName(profile);
 
   return (
     <div className="flex items-center gap-2 sm:gap-3">

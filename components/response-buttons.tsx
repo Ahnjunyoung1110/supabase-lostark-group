@@ -28,18 +28,13 @@ export function ResponseButtons({ eventId, currentStatus }: ResponseButtonsProps
     if (isLoading) return;
     setIsLoading(status);
     setError(null);
-    try {
-      const result = await upsertResponse(eventId, status);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setSelected(status);
-      }
-    } catch {
-      setError('응답 저장에 실패했습니다.');
-    } finally {
-      setIsLoading(null);
+    const result = await upsertResponse(eventId, status);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSelected(status);
     }
+    setIsLoading(null);
   };
 
   return (

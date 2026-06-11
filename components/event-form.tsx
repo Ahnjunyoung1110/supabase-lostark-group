@@ -37,27 +37,22 @@ export function EventForm({ eventId, initialValues }: EventFormProps) {
   const handleAction = async (formData: FormData) => {
     setError(null);
     setIsLoading(true);
-    try {
-      const result = isEdit
-        ? await updateEvent(eventId, formData)
-        : await createEvent(formData);
+    const result = isEdit
+      ? await updateEvent(eventId, formData)
+      : await createEvent(formData);
 
-      if (result.error) {
-        setError(result.error);
-        setIsLoading(false);
-        return;
-      }
-
-      if (result.redirectTo) {
-        router.push(result.redirectTo);
-        return;
-      }
-
+    if (result.error) {
+      setError(result.error);
       setIsLoading(false);
-    } catch {
-      setError('저장에 실패했습니다.');
-      setIsLoading(false);
+      return;
     }
+
+    if (result.redirectTo) {
+      router.push(result.redirectTo);
+      return;
+    }
+
+    setIsLoading(false);
   };
 
   return (

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { getEventWithResponses, aggregateResponseCounts, buildRoster } from '@/lib/queries';
+import { getDisplayName } from '@/lib/profile';
 import { formatDateTime, formatRelative } from '@/lib/format';
 import { EventStatusBadge } from '@/components/status-badge';
 import { ResponseButtons } from '@/components/response-buttons';
@@ -76,7 +77,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             </p>
             <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
               <User className="w-3 h-3" />
-              주최자: {event.profiles?.nickname ?? '(알 수 없음)'}
+              주최자: {getDisplayName(event.profiles)}
               <span className="ml-2 text-xs">
                 {formatRelative(event.created_at)} 생성
               </span>

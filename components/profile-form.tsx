@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { validateNickname } from '@/lib/profile';
 
 interface ProfileFormProps {
   userId: string;
@@ -26,10 +28,13 @@ export function ProfileForm({ userId, initialNickname }: ProfileFormProps) {
   const [saved, setSaved] = useState(false);
   const router = useRouter();
 
+  const needsSetup = !initialNickname?.trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nickname.trim()) {
-      setError('닉네임을 입력해주세요.');
+    const validationError = validateNickname(nickname);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setIsLoading(true);
@@ -55,27 +60,52 @@ export function ProfileForm({ userId, initialNickname }: ProfileFormProps) {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>프로필 설정</CardTitle>
-        <CardDescription>표시될 닉네임을 설정해주세요.</CardDescription>
+        <CardDescription>
+          {needsSetup
+            ? 'Discord ID 대신 앱에서 사용할 닉네임을 설정해 주세요.'
+            : '앱에서 표시될 닉네임을 변경합니다.'}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col gap-5">
             <div className="grid gap-1.5">
-              <Label htmlFor="nickname">닉네임</Label>
+              <Label htmlFor="nickname">
+                닉네임 <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="nickname"
                 type="text"
-                placeholder="닉네임 입력"
+                placeholder="1~32자 닉네임 입력"
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => {
+                  setNickname(e.target.value);
+                  if (error) setError(null);
+                  if (saved) setSaved(false);
+                }}
+                maxLength={32}
                 required
+                className="min-h-11"
               />
+              <p className="text-xs text-muted-foreground">
+                약속 목록, 상세, 명단에 표시됩니다. 1~32자.
+              </p>
             </div>
 
             {error && <p className="text-sm text-red-500">{error}</p>}
-            {saved && <p className="text-sm text-green-600 dark:text-green-400">저장되었습니다.</p>}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            {saved && (
+              <div className="space-y-2">
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  닉네임이 저장되었습니다.
+                </p>
+                <Button asChild variant="outline" className="w-full min-h-11">
+                  <Link href="/events">약속 목록으로 →</Link>
+                </Button>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full min-h-11" disabled={isLoading}>
               {isLoading ? '저장 중...' : '저장'}
             </Button>
           </div>

@@ -21,29 +21,26 @@ export function DeleteEventButton({ eventId }: DeleteEventButtonProps) {
       setConfirming(true);
       return;
     }
+
     setIsLoading(true);
     setError(null);
-    try {
-      const result = await deleteEvent(eventId);
 
-      if (result.error) {
-        setError(result.error);
-        setIsLoading(false);
-        setConfirming(false);
-        return;
-      }
+    const result = await deleteEvent(eventId);
 
-      if (result.redirectTo) {
-        router.push(result.redirectTo);
-        return;
-      }
-
-      setIsLoading(false);
-    } catch {
-      setError('삭제에 실패했습니다.');
+    if (result.error) {
+      setError(result.error);
       setIsLoading(false);
       setConfirming(false);
+      return;
     }
+
+    if (result.redirectTo) {
+      router.replace(result.redirectTo);
+      router.refresh();
+      return;
+    }
+
+    setIsLoading(false);
   };
 
   return (

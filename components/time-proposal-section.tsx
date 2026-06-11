@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { createTimeProposal, applyTimeProposal, rejectTimeProposal } from '@/app/events/actions';
 import { formatDateTime, formatRelative } from '@/lib/format';
+import { getDisplayName } from '@/lib/profile';
 import type { TimeProposalWithProfile } from '@/lib/queries';
 import { CheckCircle, Clock, History, XCircle } from 'lucide-react';
 
@@ -135,7 +136,7 @@ export function TimeProposalSection({ eventId, proposals, isOrganizer }: TimePro
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {proposal.profiles?.nickname ?? '(알 수 없음)'} · {formatRelative(proposal.created_at)} 제안
+                          {getDisplayName(proposal.profiles)} · {formatRelative(proposal.created_at)} 제안
                         </p>
                       </div>
 

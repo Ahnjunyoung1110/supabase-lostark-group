@@ -3,6 +3,9 @@
  */
 import { createClient } from '@/lib/supabase/server';
 import { isUpcoming } from '@/lib/format';
+import { getDisplayName } from '@/lib/profile';
+export { aggregateResponseCounts } from '@/lib/event-utils';
+export type { ResponseCounts } from '@/lib/event-utils';
 
 // ——————————————————————————————
 // 타입 정의
@@ -55,12 +58,6 @@ export type EventDetail = EventRow & {
   profiles: { nickname: string | null; avatar_url: string | null } | null;
   event_responses: ResponseWithProfile[];
   time_proposals: TimeProposalWithProfile[];
-};
-
-export type ResponseCounts = {
-  attending: number;
-  declined: number;
-  undecided: number;
 };
 
 export type Roster = {
@@ -150,23 +147,6 @@ export async function getEventWithResponses(id: string): Promise<EventDetail | n
 // ——————————————————————————————
 
 /**
- * 응답 배열에서 상태별 카운트 반환
- */
-export function aggregateResponseCounts(
-  responses: { status: string }[]
-): ResponseCounts {
-  return responses.reduce<ResponseCounts>(
-    (acc, r) => {
-      if (r.status === 'attending') acc.attending++;
-      else if (r.status === 'declined') acc.declined++;
-      else acc.undecided++;
-      return acc;
-    },
-    { attending: 0, declined: 0, undecided: 0 }
-  );
-}
-
-/**
  * 응답 배열을 상태별 멤버 명단으로 그룹핑
  */
 export function buildRoster(responses: ResponseWithProfile[]): Roster {
@@ -174,7 +154,7 @@ export function buildRoster(responses: ResponseWithProfile[]): Roster {
   for (const r of responses) {
     const entry = {
       userId: r.user_id,
-      nickname: r.profiles?.nickname ?? '(알 수 없음)',
+      nickname: getDisplayName(r.profiles),
       avatarUrl: r.profiles?.avatar_url ?? null,
     };
     if (r.status === 'attending') roster.attending.push(entry);

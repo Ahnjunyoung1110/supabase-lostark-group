@@ -34,7 +34,14 @@ function buildRecurringOccurrences(
   const until = untilRaw ? new Date(`${untilRaw}T23:59:59`) : null;
   const occurrences: string[] = [];
 
-  for (let week = 0; week < 3; week++) {
+  for (let week = 0; ; week++) {
+    if (!until && week >= 3) break;
+
+    // start + week*7 는 해당 주의 가장 이른 기준일 — 이미 until 초과 시 중단
+    const weekBase = new Date(start);
+    weekBase.setDate(start.getDate() + week * 7);
+    if (until && weekBase > until) break;
+
     for (const weekday of weekdays) {
       const occurrence = new Date(start);
       const daysUntilWeekday = (weekday - start.getDay() + 7) % 7;
@@ -287,6 +294,51 @@ export async function deleteEvent(eventId: string): Promise<ActionResult> {
 
   revalidatePath('/events');
   return { redirectTo: '/events' };
+}
+
+// ——————————————————————————————
+// 약속 일괄 삭제
+// ——————————————————————————————
+export async function deleteEvents(
+  eventIds: string[]
+): Promise<{ error?: string; deletedCount?: number; skippedCount?: number }> {
+  const supabase = await createClient();
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) return { error: '로그인이 필요합니다.' };
+
+  if (!eventIds || eventIds.length === 0) return { error: '삭제할 약속을 선택해 주세요.' };
+
+  const MAX_BULK = 50;
+  if (eventIds.length > MAX_BULK) return { error: `한 번에 최대 ${MAX_BULK}개까지 삭제할 수 있습니다.` };
+
+  // 현재 사용자가 주최자인 항목만 필터링
+  const { data: ownEvents, error: selectError } = await supabase
+    .from('events')
+    .select('id')
+    .in('id', eventIds)
+    .eq('created_by', user.id);
+
+  if (selectError) return { error: selectError.message };
+
+  const ownIds = (ownEvents ?? []).map((e) => e.id);
+  const skippedCount = eventIds.length - ownIds.length;
+
+  if (ownIds.length === 0) {
+    return { error: '선택한 약속 중 삭제 권한이 있는 항목이 없습니다.', deletedCount: 0, skippedCount };
+  }
+
+  const { error: deleteError } = await supabase
+    .from('events')
+    .delete()
+    .in('id', ownIds)
+    .eq('created_by', user.id);
+  // RLS도 주최자만 delete 허용하므로 이중 방어
+
+  if (deleteError) return { error: deleteError.message };
+
+  revalidatePath('/events');
+  return { deletedCount: ownIds.length, skippedCount };
 }
 
 // ——————————————————————————————
