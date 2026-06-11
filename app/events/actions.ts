@@ -2,7 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
+
+type ActionResult = {
+  error?: string;
+  redirectTo?: string;
+};
 
 // ——————————————————————————————
 // 반복 약속 생성 유틸리티
@@ -112,11 +116,11 @@ async function insertEventRows(
 // ——————————————————————————————
 // 약속 생성
 // ——————————————————————————————
-export async function createEvent(formData: FormData): Promise<void> {
+export async function createEvent(formData: FormData): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) redirect('/auth/login');
+  if (userError || !user) return { redirectTo: '/auth/login' };
 
   const title = formData.get('title') as string;
   const description = (formData.get('description') as string) || null;
@@ -131,11 +135,11 @@ export async function createEvent(formData: FormData): Promise<void> {
   const recurrenceUntilRaw = (formData.get('recurrence_until') as string) || null;
 
   if (!title?.trim()) {
-    throw new Error('제목은 필수입니다.');
+    return { error: '제목은 필수입니다.' };
   }
 
   if (isRecurring && !scheduledAtRaw) {
-    throw new Error('반복 약속은 기준 일시가 필요합니다.');
+    return { error: '반복 약속은 기준 일시가 필요합니다.' };
   }
 
   const recurringWeekdays = selectedWeekdays.length > 0 && scheduledAtRaw
@@ -149,7 +153,7 @@ export async function createEvent(formData: FormData): Promise<void> {
     : [scheduledAt];
 
   if (scheduledTimes.length === 0) {
-    throw new Error('생성할 반복 약속 일정이 없습니다. 종료일을 확인해 주세요.');
+    return { error: '생성할 반복 약속 일정이 없습니다. 종료일을 확인해 주세요.' };
   }
 
   const rows = scheduledTimes.map((time) => ({
@@ -166,10 +170,16 @@ export async function createEvent(formData: FormData): Promise<void> {
 
   if (error) {
     if (isMissingProfileForeignKeyError(error)) {
-      await ensureProfile(supabase, user);
+      try {
+        await ensureProfile(supabase, user);
+      } catch (profileError) {
+        return {
+          error: profileError instanceof Error ? profileError.message : '프로필 생성에 실패했습니다.',
+        };
+      }
       const retry = await insertEventRows(supabase, rows);
-      if (retry.error) throw new Error(retry.error.message);
-      if (!retry.data?.[0]?.id) throw new Error('생성된 약속 ID를 확인할 수 없습니다.');
+      if (retry.error) return { error: retry.error.message };
+      if (!retry.data?.[0]?.id) return { error: '생성된 약속 ID를 확인할 수 없습니다.' };
 
       const firstEvent = [...retry.data].sort((a, b) => {
         if (!a.scheduled_at) return 1;
@@ -177,12 +187,12 @@ export async function createEvent(formData: FormData): Promise<void> {
         return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
       })[0];
 
-      redirect(`/events/${firstEvent.id}`);
+      return { redirectTo: `/events/${firstEvent.id}` };
     }
 
-    throw new Error(error.message);
+    return { error: error.message };
   }
-  if (!data?.[0]?.id) throw new Error('생성된 약속 ID를 확인할 수 없습니다.');
+  if (!data?.[0]?.id) return { error: '생성된 약속 ID를 확인할 수 없습니다.' };
 
   const firstEvent = [...data].sort((a, b) => {
     if (!a.scheduled_at) return 1;
@@ -190,7 +200,7 @@ export async function createEvent(formData: FormData): Promise<void> {
     return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
   })[0];
 
-  redirect(`/events/${firstEvent.id}`);
+  return { redirectTo: `/events/${firstEvent.id}` };
 }
 
 // ——————————————————————————————
@@ -224,11 +234,11 @@ export async function upsertResponse(
 export async function updateEvent(
   eventId: string,
   formData: FormData
-): Promise<void> {
+): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) redirect('/auth/login');
+  if (userError || !user) return { redirectTo: '/auth/login' };
 
   const title = formData.get('title') as string;
   const description = (formData.get('description') as string) || null;
@@ -237,7 +247,7 @@ export async function updateEvent(
   const scheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw).toISOString() : null;
 
   if (!title?.trim()) {
-    throw new Error('제목은 필수입니다.');
+    return { error: '제목은 필수입니다.' };
   }
 
   const { error } = await supabase
@@ -251,21 +261,21 @@ export async function updateEvent(
     .eq('id', eventId);
   // RLS가 주최자만 update 허용
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
 
   revalidatePath(`/events/${eventId}`);
   revalidatePath('/events');
-  redirect(`/events/${eventId}`);
+  return { redirectTo: `/events/${eventId}` };
 }
 
 // ——————————————————————————————
 // 약속 삭제
 // ——————————————————————————————
-export async function deleteEvent(eventId: string): Promise<void> {
+export async function deleteEvent(eventId: string): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) redirect('/auth/login');
+  if (userError || !user) return { redirectTo: '/auth/login' };
 
   const { error } = await supabase
     .from('events')
@@ -273,10 +283,10 @@ export async function deleteEvent(eventId: string): Promise<void> {
     .eq('id', eventId);
   // RLS가 주최자만 delete 허용
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
 
   revalidatePath('/events');
-  redirect('/events');
+  return { redirectTo: '/events' };
 }
 
 // ——————————————————————————————

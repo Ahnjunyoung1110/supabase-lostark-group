@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { deleteEvent } from '@/app/events/actions';
@@ -10,6 +11,7 @@ interface DeleteEventButtonProps {
 }
 
 export function DeleteEventButton({ eventId }: DeleteEventButtonProps) {
+  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,21 @@ export function DeleteEventButton({ eventId }: DeleteEventButtonProps) {
     setIsLoading(true);
     setError(null);
     try {
-      await deleteEvent(eventId);
+      const result = await deleteEvent(eventId);
+
+      if (result.error) {
+        setError(result.error);
+        setIsLoading(false);
+        setConfirming(false);
+        return;
+      }
+
+      if (result.redirectTo) {
+        router.push(result.redirectTo);
+        return;
+      }
+
+      setIsLoading(false);
     } catch {
       setError('삭제에 실패했습니다.');
       setIsLoading(false);

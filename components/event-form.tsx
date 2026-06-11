@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -27,6 +28,7 @@ interface EventFormProps {
 }
 
 export function EventForm({ eventId, initialValues }: EventFormProps) {
+  const router = useRouter();
   const isEdit = !!eventId;
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,13 +38,24 @@ export function EventForm({ eventId, initialValues }: EventFormProps) {
     setError(null);
     setIsLoading(true);
     try {
-      if (isEdit) {
-        await updateEvent(eventId, formData);
-      } else {
-        await createEvent(formData);
+      const result = isEdit
+        ? await updateEvent(eventId, formData)
+        : await createEvent(formData);
+
+      if (result.error) {
+        setError(result.error);
+        setIsLoading(false);
+        return;
       }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
+
+      if (result.redirectTo) {
+        router.push(result.redirectTo);
+        return;
+      }
+
+      setIsLoading(false);
+    } catch {
+      setError('저장에 실패했습니다.');
       setIsLoading(false);
     }
   };
