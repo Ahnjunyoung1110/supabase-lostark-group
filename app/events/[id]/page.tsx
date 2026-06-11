@@ -12,16 +12,19 @@ import { RosterList } from '@/components/roster-list';
 import { DeleteEventButton } from '@/components/delete-event-button';
 import { TimeProposalSection } from '@/components/time-proposal-section';
 import { EventRealtimeRefresh } from '@/components/event-realtime-refresh';
+import { DiscordSharePanel } from '@/components/discord-share-panel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Repeat2, Swords, User, ArrowLeft, Pencil } from 'lucide-react';
 
 interface EventDetailPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ created?: string }>;
 }
 
-export default async function EventDetailPage({ params }: EventDetailPageProps) {
+export default async function EventDetailPage({ params, searchParams }: EventDetailPageProps) {
   const { id } = await params;
+  const { created } = await searchParams;
 
   const supabase = await createClient();
   const [{ data }, event] = await Promise.all([
@@ -35,6 +38,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   const counts = aggregateResponseCounts(event.event_responses ?? []);
   const roster = buildRoster(event.event_responses ?? []);
   const isOrganizer = user?.sub === event.created_by;
+  const wasJustCreated = created === '1';
+  const canSendDiscordWebhook = !!process.env.DISCORD_WEBHOOK_URL;
 
   // 현재 사용자의 응답 상태
   const myResponse = event.event_responses?.find((r) => r.user_id === user?.sub);
@@ -104,6 +109,15 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
           </p>
         )}
       </div>
+
+      {/* Discord 공유 */}
+      {isOrganizer && (
+        <DiscordSharePanel
+          event={event}
+          canSendWebhook={canSendDiscordWebhook}
+          created={wasJustCreated}
+        />
+      )}
 
       {/* 내 응답 */}
       {user && (

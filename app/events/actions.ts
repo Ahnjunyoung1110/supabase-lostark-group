@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { buildDiscordWebhookPayload, buildEventDetailUrl, normalizeSiteUrl } from '@/lib/discord/share-message';
 import { revalidatePath } from 'next/cache';
 
 type ActionResult = {
@@ -194,7 +195,7 @@ export async function createEvent(formData: FormData): Promise<ActionResult> {
         return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
       })[0];
 
-      return { redirectTo: `/events/${firstEvent.id}` };
+      return { redirectTo: `/events/${firstEvent.id}?created=1` };
     }
 
     return { error: error.message };
@@ -207,7 +208,7 @@ export async function createEvent(formData: FormData): Promise<ActionResult> {
     return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
   })[0];
 
-  return { redirectTo: `/events/${firstEvent.id}` };
+  return { redirectTo: `/events/${firstEvent.id}?created=1` };
 }
 
 // ——————————————————————————————
@@ -339,6 +340,52 @@ export async function deleteEvents(
 
   revalidatePath('/events');
   return { deletedCount: ownIds.length, skippedCount };
+}
+
+// ——————————————————————————————
+// Discord webhook 공유
+// ——————————————————————————————
+export async function shareEventToDiscord(eventId: string): Promise<{ error?: string }> {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) return { error: 'DISCORD_WEBHOOK_URL이 설정되어 있지 않습니다.' };
+
+  const siteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL);
+  if (!siteUrl) return { error: 'NEXT_PUBLIC_SITE_URL 또는 VERCEL_URL이 설정되어 있지 않습니다.' };
+
+  const supabase = await createClient();
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) return { error: '로그인이 필요합니다.' };
+
+  const { data: event, error: eventError } = await supabase
+    .from('events')
+    .select('id, title, description, raid_name, scheduled_at, created_by, profiles ( nickname )')
+    .eq('id', eventId)
+    .single();
+
+  if (eventError || !event) return { error: '약속을 찾을 수 없습니다.' };
+  if (event.created_by !== user.id) return { error: '주최자만 Discord 채널로 공유할 수 있습니다.' };
+
+  const eventUrl = buildEventDetailUrl(event.id, siteUrl);
+  const payload = buildDiscordWebhookPayload(event, eventUrl);
+
+  let response: Response;
+  try {
+    response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return { error: 'Discord webhook 요청에 실패했습니다.' };
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    return { error: `Discord webhook 전송 실패 (${response.status})${body ? `: ${body}` : ''}` };
+  }
+
+  return {};
 }
 
 // ——————————————————————————————
