@@ -46,6 +46,30 @@ function buildRecurringOccurrences(
   return Array.from(new Set(occurrences)).sort();
 }
 
+function getProfileDefaults(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }) {
+  const metadata = user.user_metadata ?? {};
+  const nickname =
+    typeof metadata.full_name === 'string' && metadata.full_name.trim()
+      ? metadata.full_name
+      : typeof metadata.name === 'string' && metadata.name.trim()
+        ? metadata.name
+        : user.email?.split('@')[0] ?? null;
+
+  return {
+    id: user.id,
+    nickname,
+    avatar_url: typeof metadata.avatar_url === 'string' ? metadata.avatar_url : null,
+  };
+}
+
+async function ensureProfile(supabase: Awaited<ReturnType<typeof createClient>>, user: { id: string; email?: string; user_metadata?: Record<string, unknown> }) {
+  const { error } = await supabase
+    .from('profiles')
+    .upsert(getProfileDefaults(user), { onConflict: 'id', ignoreDuplicates: true });
+
+  if (error) throw new Error(`프로필 생성에 실패했습니다: ${error.message}`);
+}
+
 // ——————————————————————————————
 // 약속 생성
 // ——————————————————————————————
@@ -54,6 +78,8 @@ export async function createEvent(formData: FormData): Promise<void> {
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect('/auth/login');
+
+  await ensureProfile(supabase, user);
 
   const title = formData.get('title') as string;
   const description = (formData.get('description') as string) || null;
@@ -102,15 +128,19 @@ export async function createEvent(formData: FormData): Promise<void> {
   const { data, error } = await supabase
     .from('events')
     .insert(rows)
-    .select('id')
-    .order('scheduled_at', { ascending: true })
-    .limit(1);
+    .select('id, scheduled_at');
 
   if (error) throw new Error(error.message);
   if (!data?.[0]?.id) throw new Error('생성된 약속 ID를 확인할 수 없습니다.');
 
+  const firstEvent = [...data].sort((a, b) => {
+    if (!a.scheduled_at) return 1;
+    if (!b.scheduled_at) return -1;
+    return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+  })[0];
+
   revalidatePath('/events');
-  redirect(`/events/${data[0].id}`);
+  redirect(`/events/${firstEvent.id}`);
 }
 
 // ——————————————————————————————
