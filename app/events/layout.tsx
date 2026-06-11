@@ -13,15 +13,15 @@ export default function EventsLayout({
     <div className="min-h-screen flex flex-col">
       {/* 네비게이션 바 */}
       <nav className="w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto flex h-14 items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
           <Link
             href="/events"
             className="flex items-center gap-2 font-semibold hover:opacity-80 transition-opacity"
           >
             <Swords className="w-5 h-5" />
-            <span>로스트아크 약속</span>
+            <span className="text-sm sm:text-base">로스트아크 약속</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <ThemeSwitcher />
             <Suspense fallback={<div className="w-16 h-8 bg-muted rounded animate-pulse" />}>
               <AuthButton />

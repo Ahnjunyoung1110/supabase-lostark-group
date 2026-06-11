@@ -17,12 +17,12 @@ export default async function LandingPage() {
     <div className="min-h-screen flex flex-col">
       {/* 네비 */}
       <nav className="w-full border-b border-border/50">
-        <div className="max-w-5xl mx-auto flex h-14 items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
           <div className="flex items-center gap-2 font-semibold">
             <Swords className="w-5 h-5" />
-            <span>로스트아크 약속</span>
+            <span className="text-sm sm:text-base">로스트아크 약속</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <ThemeSwitcher />
             <Suspense fallback={null}>
               <AuthButton />
@@ -32,35 +32,35 @@ export default async function LandingPage() {
       </nav>
 
       {/* 히어로 */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 text-center gap-8 py-16">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 text-center gap-6 py-10 sm:gap-8 sm:py-16">
         <div className="space-y-4 max-w-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm text-muted-foreground">
             <Swords className="w-4 h-4" />
             친구 그룹 레이드 약속 관리
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight">
             레이드 약속을
             <br />
             <span className="text-primary">쉽게 잡아요</span>
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-base sm:text-lg">
             약속을 올리면 멤버들이 참석 여부를 응답하고
-            <br />
+            <br className="hidden sm:block" />
             그 결과가 자동으로 집계됩니다.
           </p>
         </div>
 
         {/* CTA */}
-        <div className="flex gap-3 flex-wrap justify-center">
+        <div className="flex w-full max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:flex-wrap sm:justify-center">
           {isLoggedIn ? (
-            <Button asChild size="lg">
+            <Button asChild size="lg" className="min-h-11 w-full sm:w-auto">
               <Link href="/events" className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5" />
                 약속 목록 보기
               </Link>
             </Button>
           ) : (
-            <Button asChild size="lg">
+            <Button asChild size="lg" className="min-h-11 w-full sm:w-auto">
               <Link href="/auth/login" className="flex items-center gap-2">
                 Discord로 시작하기
               </Link>
@@ -69,7 +69,7 @@ export default async function LandingPage() {
         </div>
 
         {/* 기능 소개 */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mt-4 text-left">
+        <div className="grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:mt-4 sm:grid-cols-3 sm:gap-6">
           <div className="rounded-lg border p-4 space-y-2">
             <CalendarDays className="w-6 h-6 text-primary" />
             <h3 className="font-semibold text-sm">약속 생성</h3>
@@ -94,8 +94,8 @@ export default async function LandingPage() {
         </div>
       </main>
 
-      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
-        <ThemeSwitcher />
+      <footer className="border-t py-4 text-center text-xs text-muted-foreground sm:py-6">
+        <span>Lost Ark raid scheduler</span>
       </footer>
     </div>
   );

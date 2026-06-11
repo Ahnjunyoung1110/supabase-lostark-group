@@ -38,10 +38,10 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   const myStatus = myResponse?.status ?? null;
 
   return (
-    <div className="space-y-8 max-w-3xl mx-auto">
+    <div className="space-y-6 max-w-3xl mx-auto sm:space-y-8">
       <EventRealtimeRefresh eventId={event.id} />
       {/* 뒤로 */}
-      <Button asChild variant="ghost" size="sm" className="-ml-2">
+      <Button asChild variant="ghost" className="-ml-2 min-h-11 w-fit">
         <Link href="/events" className="flex items-center gap-1.5">
           <ArrowLeft className="w-4 h-4" />
           목록으로
@@ -50,10 +50,10 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
 
       {/* 약속 정보 */}
       <div className="space-y-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold">{event.title}</h1>
+              <h1 className="text-2xl font-bold leading-tight break-words">{event.title}</h1>
               <EventStatusBadge status={event.status} />
               {event.raid_name && (
                 <Badge variant="outline" className="flex items-center gap-1">
@@ -83,8 +83,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
 
           {/* 주최자 전용: 수정/삭제 */}
           {isOrganizer && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button asChild variant="outline" size="sm">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:flex-wrap">
+              <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto">
                 <Link href={`/events/${event.id}/edit`} className="flex items-center gap-1.5">
                   <Pencil className="w-4 h-4" />
                   수정

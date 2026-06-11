@@ -21,12 +21,12 @@ export function EventCard({ event }: EventCardProps) {
   const total = counts.attending + counts.declined + counts.undecided;
 
   return (
-    <Link href={`/events/${event.id}`} className="block hover:no-underline">
-      <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-        <CardHeader className="pb-2">
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-base leading-snug">{event.title}</CardTitle>
-            <div className="flex items-center gap-1 flex-wrap justify-end">
+    <Link href={`/events/${event.id}`} className="block h-full hover:no-underline">
+      <Card className="hover:shadow-md transition-shadow cursor-pointer h-full min-h-32">
+        <CardHeader className="p-4 pb-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <CardTitle className="text-base leading-snug break-words">{event.title}</CardTitle>
+            <div className="flex items-center gap-1 flex-wrap sm:justify-end">
               {event.raid_name && (
                 <Badge variant="outline" className="flex items-center gap-1 shrink-0 text-xs">
                   <Swords className="w-3 h-3" />
@@ -41,12 +41,12 @@ export function EventCard({ event }: EventCardProps) {
               )}
             </div>
           </div>
-          <CardDescription className="flex items-center gap-1 text-xs">
+          <CardDescription className="flex items-center gap-1 text-xs leading-relaxed">
             <CalendarDays className="w-3 h-3" />
             {formatDateTime(event.scheduled_at)}
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="p-4 pt-0">
           {event.description && (
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
               {event.description}

@@ -45,7 +45,7 @@ export function ResponseButtons({ eventId, currentStatus }: ResponseButtonsProps
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">내 응답</p>
-      <div className="flex gap-2 flex-wrap">
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
         {BUTTONS.map(({ status, label, icon }) => {
           const isSelected = selected === status;
           const loading = isLoading === status;
@@ -53,11 +53,10 @@ export function ResponseButtons({ eventId, currentStatus }: ResponseButtonsProps
             <Button
               key={status}
               variant={isSelected ? 'default' : 'outline'}
-              size="sm"
               disabled={!!isLoading}
               onClick={() => handleClick(status)}
               className={cn(
-                'flex items-center gap-1.5',
+                'min-h-11 w-full flex items-center gap-1.5 sm:w-auto',
                 status === 'attending' && isSelected && 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800',
                 status === 'declined'  && isSelected && 'bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800',
               )}

@@ -103,7 +103,7 @@ export function TimeProposalSection({ eventId, proposals, isOrganizer }: TimePro
             />
           </div>
           {formError && <p className="text-sm text-red-500">{formError}</p>}
-          <Button type="submit" disabled={isCreating} className="w-full sm:w-fit">
+          <Button type="submit" disabled={isCreating} className="min-h-11 w-full sm:w-fit">
             {isCreating ? '제안 중...' : '시간 변경 제안하기'}
           </Button>
         </form>
@@ -126,10 +126,10 @@ export function TimeProposalSection({ eventId, proposals, isOrganizer }: TimePro
 
                 return (
                   <div key={proposal.id} className="rounded-lg border p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium">{formatDateTime(proposal.proposed_at)}</p>
+                          <p className="font-medium break-words">{formatDateTime(proposal.proposed_at)}</p>
                           <Badge variant={proposalBadgeVariant(proposal.status)}>
                             {STATUS_LABEL[proposal.status]}
                           </Badge>
@@ -140,23 +140,22 @@ export function TimeProposalSection({ eventId, proposals, isOrganizer }: TimePro
                       </div>
 
                       {isOrganizer && isPending && (
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-2 gap-2 sm:flex">
                           <Button
                             type="button"
-                            size="sm"
                             disabled={isUpdating}
                             onClick={() => handleProposalAction(proposal.id, 'apply')}
-                            className="bg-green-600 hover:bg-green-700"
+                            className="min-h-11 bg-green-600 hover:bg-green-700"
                           >
                             <CheckCircle className="h-4 w-4" />
                             {isBusy ? '처리 중...' : '확정'}
                           </Button>
                           <Button
                             type="button"
-                            size="sm"
                             variant="outline"
                             disabled={isUpdating}
                             onClick={() => handleProposalAction(proposal.id, 'reject')}
+                            className="min-h-11"
                           >
                             <XCircle className="h-4 w-4" />
                             거절

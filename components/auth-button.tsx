@@ -10,7 +10,7 @@ export async function AuthButton() {
 
   if (!user) {
     return (
-      <Button asChild size="sm" variant="outline">
+      <Button asChild variant="outline" className="min-h-10">
         <Link href="/auth/login">로그인</Link>
       </Button>
     );
@@ -26,10 +26,10 @@ export async function AuthButton() {
   const displayName = profile?.nickname ?? user.email ?? '사용자';
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       <Link
         href="/profile"
-        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="max-w-24 truncate text-sm text-muted-foreground transition-colors hover:text-foreground sm:max-w-40"
       >
         {displayName}
       </Link>

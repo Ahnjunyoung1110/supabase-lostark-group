@@ -11,16 +11,16 @@ export default async function EventsPage() {
   const { upcoming, past } = splitEvents(events);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8 sm:space-y-10">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">약속 목록</h1>
           <p className="text-muted-foreground text-sm mt-1">
             레이드 약속을 만들고 멤버들의 참석 여부를 확인하세요.
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="min-h-11 w-full sm:w-auto">
           <Link href="/events/new" className="flex items-center gap-1.5">
             <Plus className="w-4 h-4" />
             약속 만들기
@@ -45,7 +45,7 @@ export default async function EventsPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {upcoming.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
@@ -60,7 +60,7 @@ export default async function EventsPage() {
             지난 약속
             <span className="text-sm font-normal ml-2">({past.length}건)</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 opacity-70">
+          <div className="grid grid-cols-1 gap-3 opacity-70 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {past.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}

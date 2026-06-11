@@ -111,7 +111,7 @@ export function EventForm({ eventId, initialValues }: EventFormProps) {
                   <div className="grid gap-4">
                     <div className="grid gap-2">
                       <Label>반복 요일</Label>
-                      <div className="flex flex-wrap gap-2 text-sm">
+                      <div className="grid grid-cols-4 gap-2 text-sm sm:flex sm:flex-wrap">
                         {[
                           ['0', '일'],
                           ['1', '월'],
@@ -121,7 +121,7 @@ export function EventForm({ eventId, initialValues }: EventFormProps) {
                           ['5', '금'],
                           ['6', '토'],
                         ].map(([value, label]) => (
-                          <label key={value} className="flex items-center gap-1.5 rounded-md border px-2 py-1">
+                          <label key={value} className="flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-2 py-1 sm:min-h-0 sm:justify-start">
                             <input type="checkbox" name="recurrence_weekdays" value={value} />
                             {label}
                           </label>
@@ -158,7 +158,7 @@ export function EventForm({ eventId, initialValues }: EventFormProps) {
 
             {error && <p className="text-sm text-red-500">{error}</p>}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="min-h-11 w-full" disabled={isLoading}>
               {isLoading
                 ? isEdit ? '저장 중...' : '만드는 중...'
                 : isEdit ? '수정 저장' : '약속 만들기'}

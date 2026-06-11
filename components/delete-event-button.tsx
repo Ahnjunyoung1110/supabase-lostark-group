@@ -31,16 +31,15 @@ export function DeleteEventButton({ eventId }: DeleteEventButtonProps) {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
       {confirming && !isLoading && (
         <span className="text-sm text-muted-foreground">정말 삭제하시겠습니까?</span>
       )}
       <Button
         variant={confirming ? 'destructive' : 'outline'}
-        size="sm"
         disabled={isLoading}
         onClick={handleDelete}
-        className="flex items-center gap-1.5"
+        className="flex min-h-11 w-full items-center gap-1.5 sm:w-auto"
       >
         {isLoading ? (
           <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -52,8 +51,8 @@ export function DeleteEventButton({ eventId }: DeleteEventButtonProps) {
       {confirming && !isLoading && (
         <Button
           variant="ghost"
-          size="sm"
           onClick={() => setConfirming(false)}
+          className="min-h-11 w-full sm:w-auto"
         >
           취소
         </Button>

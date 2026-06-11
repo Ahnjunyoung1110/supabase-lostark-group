@@ -29,7 +29,7 @@ export default async function EditEventPage({ params }: EditEventPageProps) {
   }
 
   return (
-    <div className="flex justify-center">
+    <div className="flex justify-center px-0 sm:px-4">
       <EventForm
         eventId={event.id}
         initialValues={{
