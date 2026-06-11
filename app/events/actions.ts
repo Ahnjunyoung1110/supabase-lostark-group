@@ -70,6 +70,45 @@ async function ensureProfile(supabase: Awaited<ReturnType<typeof createClient>>,
   if (error) throw new Error(`프로필 생성에 실패했습니다: ${error.message}`);
 }
 
+function isMissingProfileForeignKeyError(error: { code?: string; message?: string; details?: string | null }) {
+  return (
+    error.code === '23503' &&
+    (error.message?.includes('events_created_by_fkey') ||
+      error.details?.includes('events_created_by_fkey') ||
+      error.message?.includes('violates foreign key constraint'))
+  );
+}
+
+type EventInsertRow = {
+  title: string;
+  description: string | null;
+  raid_name: string | null;
+  scheduled_at: string | null;
+  created_by: string;
+  is_recurring: boolean;
+  recurrence_rule: string | null;
+};
+
+async function insertEventRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: EventInsertRow[]
+) {
+  if (rows.length === 1) {
+    const { data, error } = await supabase
+      .from('events')
+      .insert(rows[0])
+      .select('id, scheduled_at')
+      .single();
+
+    return { data: data ? [data] : null, error };
+  }
+
+  return supabase
+    .from('events')
+    .insert(rows)
+    .select('id, scheduled_at');
+}
+
 // ——————————————————————————————
 // 약속 생성
 // ——————————————————————————————
@@ -78,8 +117,6 @@ export async function createEvent(formData: FormData): Promise<void> {
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect('/auth/login');
-
-  await ensureProfile(supabase, user);
 
   const title = formData.get('title') as string;
   const description = (formData.get('description') as string) || null;
@@ -125,12 +162,26 @@ export async function createEvent(formData: FormData): Promise<void> {
     recurrence_rule: recurrenceRule,
   }));
 
-  const { data, error } = await supabase
-    .from('events')
-    .insert(rows)
-    .select('id, scheduled_at');
+  const { data, error } = await insertEventRows(supabase, rows);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingProfileForeignKeyError(error)) {
+      await ensureProfile(supabase, user);
+      const retry = await insertEventRows(supabase, rows);
+      if (retry.error) throw new Error(retry.error.message);
+      if (!retry.data?.[0]?.id) throw new Error('생성된 약속 ID를 확인할 수 없습니다.');
+
+      const firstEvent = [...retry.data].sort((a, b) => {
+        if (!a.scheduled_at) return 1;
+        if (!b.scheduled_at) return -1;
+        return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+      })[0];
+
+      redirect(`/events/${firstEvent.id}`);
+    }
+
+    throw new Error(error.message);
+  }
   if (!data?.[0]?.id) throw new Error('생성된 약속 ID를 확인할 수 없습니다.');
 
   const firstEvent = [...data].sort((a, b) => {
@@ -139,7 +190,6 @@ export async function createEvent(formData: FormData): Promise<void> {
     return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
   })[0];
 
-  revalidatePath('/events');
   redirect(`/events/${firstEvent.id}`);
 }
 

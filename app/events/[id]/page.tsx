@@ -23,10 +23,12 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   const { id } = await params;
 
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const [{ data }, event] = await Promise.all([
+    supabase.auth.getClaims(),
+    getEventWithResponses(id),
+  ]);
   const user = data?.claims;
 
-  const event = await getEventWithResponses(id);
   if (!event) notFound();
 
   const counts = aggregateResponseCounts(event.event_responses ?? []);
