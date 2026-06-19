@@ -1,15 +1,25 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Suspense } from 'react';
 import { AuthButton } from '@/components/auth-button';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { Swords } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface SiteNavProps {
-  activeSection?: 'events' | 'characters';
-}
+export function SiteNav() {
+  const pathname = usePathname();
 
-export function SiteNav({ activeSection }: SiteNavProps) {
+  const activeSection =
+    pathname.startsWith('/characters/ranking')
+      ? 'ranking'
+      : pathname.startsWith('/characters')
+      ? 'characters'
+      : pathname.startsWith('/events')
+      ? 'events'
+      : undefined;
+
   return (
     <nav className="w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
       <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
@@ -43,6 +53,17 @@ export function SiteNav({ activeSection }: SiteNavProps) {
               )}
             >
               캐릭터
+            </Link>
+            <Link
+              href="/characters/ranking"
+              className={cn(
+                'px-2 py-1 text-sm rounded-md transition-colors',
+                activeSection === 'ranking'
+                  ? 'bg-muted font-medium text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+            >
+              랭킹
             </Link>
           </div>
         </div>
