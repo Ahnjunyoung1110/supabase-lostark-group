@@ -54,6 +54,77 @@ export function buildDiscordShareText(event: DiscordShareEvent, eventUrl: string
   return lines.filter((line): line is string => line !== null).join('\n');
 }
 
+export type DiscordButtonComponent = {
+  type: 2;
+  style: 1 | 2 | 3 | 4 | 5;
+  label: string;
+  custom_id: string;
+};
+
+export type DiscordActionRow = {
+  type: 1;
+  components: DiscordButtonComponent[];
+};
+
+export type DiscordBotMessagePayload = {
+  embeds: Array<{
+    title: string;
+    description?: string;
+    color: number;
+    fields: Array<{ name: string; value: string; inline?: boolean }>;
+    url: string;
+  }>;
+  components: DiscordActionRow[];
+};
+
+export function buildDiscordBotMessagePayload(
+  event: DiscordShareEvent,
+  eventUrl: string,
+): DiscordBotMessagePayload {
+  const fields = [
+    event.raid_name ? { name: '레이드', value: event.raid_name, inline: true } : null,
+    { name: '시간', value: formatDateTime(event.scheduled_at), inline: true },
+    { name: '주최자', value: getDisplayName(getOrganizerProfile(event)), inline: true },
+  ].filter((f): f is { name: string; value: string; inline: boolean } => f !== null);
+
+  return {
+    embeds: [
+      {
+        title: event.title,
+        description: event.description?.trim() || undefined,
+        color: 0x5865f2,
+        fields,
+        url: eventUrl,
+      },
+    ],
+    components: [
+      {
+        type: 1,
+        components: [
+          {
+            type: 2,
+            style: 3,
+            label: '참석 ✅',
+            custom_id: `event_response:${event.id}:attending`,
+          },
+          {
+            type: 2,
+            style: 4,
+            label: '불참 ❌',
+            custom_id: `event_response:${event.id}:declined`,
+          },
+          {
+            type: 2,
+            style: 2,
+            label: '미정 ❔',
+            custom_id: `event_response:${event.id}:undecided`,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function buildDiscordWebhookPayload(event: DiscordShareEvent, eventUrl: string): DiscordEmbedPayload {
   const fields = [
     event.raid_name ? { name: '레이드', value: event.raid_name, inline: true } : null,

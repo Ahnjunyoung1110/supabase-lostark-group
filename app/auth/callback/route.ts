@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { extractDiscordUserId } from '@/lib/discord/user-id';
 
 /**
  * OAuth 인증 코드 교환 라우트
@@ -14,6 +15,19 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const discordUserId = user ? extractDiscordUserId(user) : null;
+
+      if (user && discordUserId) {
+        await supabase
+          .from('profiles')
+          .update({ discord_user_id: discordUserId })
+          .eq('id', user.id)
+          .is('discord_user_id', null);
+      }
+
       // 신규 사용자는 /profile로, 기존 사용자는 /events로
       const forwardedHost = request.headers.get('x-forwarded-host');
       const isLocalEnv = process.env.NODE_ENV === 'development';

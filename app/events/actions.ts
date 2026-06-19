@@ -1,7 +1,12 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { buildDiscordWebhookPayload, buildEventDetailUrl, normalizeSiteUrl } from '@/lib/discord/share-message';
+import {
+  buildDiscordBotMessagePayload,
+  buildDiscordWebhookPayload,
+  buildEventDetailUrl,
+  normalizeSiteUrl,
+} from '@/lib/discord/share-message';
 import { revalidatePath } from 'next/cache';
 
 type ActionResult = {
@@ -343,11 +348,20 @@ export async function deleteEvents(
 }
 
 // ——————————————————————————————
-// Discord webhook 공유
+// Discord 채널 공유 (Bot API 우선, fallback: Webhook)
 // ——————————————————————————————
 export async function shareEventToDiscord(eventId: string): Promise<{ error?: string }> {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  const channelId = process.env.DISCORD_CHANNEL_ID;
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (!webhookUrl) return { error: 'DISCORD_WEBHOOK_URL이 설정되어 있지 않습니다.' };
+  const hasBot = !!(botToken && channelId);
+  const hasWebhook = !!webhookUrl;
+
+  if (!hasBot && !hasWebhook) {
+    return {
+      error: 'DISCORD_BOT_TOKEN+DISCORD_CHANNEL_ID 또는 DISCORD_WEBHOOK_URL을 설정해 주세요.',
+    };
+  }
 
   const siteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL);
   if (!siteUrl) return { error: 'NEXT_PUBLIC_SITE_URL 또는 VERCEL_URL이 설정되어 있지 않습니다.' };
@@ -367,11 +381,34 @@ export async function shareEventToDiscord(eventId: string): Promise<{ error?: st
   if (event.created_by !== user.id) return { error: '주최자만 Discord 채널로 공유할 수 있습니다.' };
 
   const eventUrl = buildEventDetailUrl(event.id, siteUrl);
-  const payload = buildDiscordWebhookPayload(event, eventUrl);
 
+  if (hasBot) {
+    const payload = buildDiscordBotMessagePayload(event, eventUrl);
+    let response: Response;
+    try {
+      response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      return { error: 'Discord Bot API 요청에 실패했습니다.' };
+    }
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      return { error: `Discord Bot 메시지 전송 실패 (${response.status})${body ? `: ${body}` : ''}` };
+    }
+    return {};
+  }
+
+  // Webhook fallback
+  const payload = buildDiscordWebhookPayload(event, eventUrl);
   let response: Response;
   try {
-    response = await fetch(webhookUrl, {
+    response = await fetch(webhookUrl!, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -379,12 +416,10 @@ export async function shareEventToDiscord(eventId: string): Promise<{ error?: st
   } catch {
     return { error: 'Discord webhook 요청에 실패했습니다.' };
   }
-
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     return { error: `Discord webhook 전송 실패 (${response.status})${body ? `: ${body}` : ''}` };
   }
-
   return {};
 }
 

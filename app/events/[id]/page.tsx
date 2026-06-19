@@ -39,7 +39,10 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
   const roster = buildRoster(event.event_responses ?? []);
   const isOrganizer = user?.sub === event.created_by;
   const wasJustCreated = created === '1';
-  const canSendDiscordWebhook = !!process.env.DISCORD_WEBHOOK_URL;
+  const canSendDiscordMessage = !!(
+    (process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_CHANNEL_ID) ||
+    process.env.DISCORD_WEBHOOK_URL
+  );
 
   // 현재 사용자의 응답 상태
   const myResponse = event.event_responses?.find((r) => r.user_id === user?.sub);
@@ -114,7 +117,7 @@ export default async function EventDetailPage({ params, searchParams }: EventDet
       {isOrganizer && (
         <DiscordSharePanel
           event={event}
-          canSendWebhook={canSendDiscordWebhook}
+          canSendDiscordMessage={canSendDiscordMessage}
           created={wasJustCreated}
         />
       )}

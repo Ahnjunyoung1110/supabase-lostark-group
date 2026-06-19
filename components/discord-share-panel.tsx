@@ -15,11 +15,11 @@ import { Check, Copy, ExternalLink, Send, Share2 } from 'lucide-react';
 
 interface DiscordSharePanelProps {
   event: DiscordShareEvent;
-  canSendWebhook: boolean;
+  canSendDiscordMessage: boolean;
   created?: boolean;
 }
 
-export function DiscordSharePanel({ event, canSendWebhook, created = false }: DiscordSharePanelProps) {
+export function DiscordSharePanel({ event, canSendDiscordMessage, created = false }: DiscordSharePanelProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -108,7 +108,7 @@ export function DiscordSharePanel({ event, canSendWebhook, created = false }: Di
           </Button>
         </div>
 
-        {canSendWebhook && (
+        {canSendDiscordMessage && (
           <Button
             type="button"
             variant="secondary"
@@ -125,9 +125,9 @@ export function DiscordSharePanel({ event, canSendWebhook, created = false }: Di
           </Button>
         )}
 
-        {!canSendWebhook && (
+        {!canSendDiscordMessage && (
           <p className="text-xs text-muted-foreground">
-            자동 채널 전송은 서버 환경변수 DISCORD_WEBHOOK_URL 설정 시 활성화됩니다.
+            자동 채널 전송은 DISCORD_BOT_TOKEN+DISCORD_CHANNEL_ID 또는 DISCORD_WEBHOOK_URL 설정 시 활성화됩니다.
           </p>
         )}
 
