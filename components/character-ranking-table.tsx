@@ -1,16 +1,31 @@
 import { Badge } from '@/components/ui/badge';
 import { getDisplayName } from '@/lib/profile';
-import type { CharacterWithProfile } from '@/lib/characters';
+import type { CharacterRankingSortKey, CharacterWithProfile } from '@/lib/characters';
 import { cn } from '@/lib/utils';
 
 interface CharacterRankingTableProps {
   characters: CharacterWithProfile[];
   currentUserId: string;
+  sortBy: CharacterRankingSortKey;
 }
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
-export function CharacterRankingTable({ characters, currentUserId }: CharacterRankingTableProps) {
+function formatNumber(value: number | null | undefined, maximumFractionDigits = 2) {
+  return value != null
+    ? value.toLocaleString('ko-KR', { maximumFractionDigits })
+    : '—';
+}
+
+function metricCellClass(sortBy: CharacterRankingSortKey, key: CharacterRankingSortKey, rank: number) {
+  return cn(
+    'px-4 py-3 text-right whitespace-nowrap tabular-nums',
+    sortBy === key && 'font-semibold',
+    sortBy === key && rank === 1 && 'text-yellow-500 dark:text-yellow-400'
+  );
+}
+
+export function CharacterRankingTable({ characters, currentUserId, sortBy }: CharacterRankingTableProps) {
   if (characters.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-10 border rounded-lg border-dashed">
@@ -30,6 +45,9 @@ export function CharacterRankingTable({ characters, currentUserId }: CharacterRa
             <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">직업</th>
             <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">아이템레벨</th>
             <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">환산점수</th>
+            <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">젬 효율</th>
+            <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">팔찌 효율</th>
+            <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">각인 효율</th>
             <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">소스</th>
           </tr>
         </thead>
@@ -66,13 +84,20 @@ export function CharacterRankingTable({ characters, currentUserId }: CharacterRa
                 </td>
                 <td className="px-4 py-3 font-medium whitespace-nowrap">{char.character_name}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{char.class_name ?? '—'}</td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {char.item_level != null ? String(char.item_level) : '—'}
+                <td className={metricCellClass(sortBy, 'item_level', rank)}>
+                  {formatNumber(char.item_level)}
                 </td>
-                <td className={cn('px-4 py-3 text-right whitespace-nowrap tabular-nums font-semibold', rank === 1 && 'text-yellow-500 dark:text-yellow-400')}>
-                  {char.spec_score != null
-                    ? char.spec_score.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
-                    : '—'}
+                <td className={metricCellClass(sortBy, 'spec_score', rank)}>
+                  {formatNumber(char.spec_score)}
+                </td>
+                <td className={metricCellClass(sortBy, 'gem_efficiency_percent', rank)}>
+                  {char.gem_efficiency_percent != null ? `${formatNumber(char.gem_efficiency_percent)}%` : '—'}
+                </td>
+                <td className={metricCellClass(sortBy, 'bracelet_efficiency_percent', rank)}>
+                  {char.bracelet_efficiency_percent != null ? `${formatNumber(char.bracelet_efficiency_percent)}%` : '—'}
+                </td>
+                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                  {char.engraving_efficiency_percent != null ? `${formatNumber(char.engraving_efficiency_percent)}%` : '—'}
                 </td>
                 <td className="px-4 py-3 text-center whitespace-nowrap">
                   <Badge

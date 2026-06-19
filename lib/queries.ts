@@ -6,6 +6,7 @@ import { isUpcoming } from '@/lib/format';
 import { getDisplayName } from '@/lib/profile';
 export { aggregateResponseCounts } from '@/lib/event-utils';
 export type { ResponseCounts } from '@/lib/event-utils';
+import type { CharacterRankingSortKey } from '@/lib/characters';
 export type { CharacterRow, CharacterWithProfile } from '@/lib/characters';
 
 // ——————————————————————————————
@@ -162,15 +163,32 @@ export async function getMyCharacters(userId: string) {
   return data ?? [];
 }
 
+const CHARACTER_RANKING_SORT_COLUMNS: Record<CharacterRankingSortKey, string> = {
+  spec_score: 'spec_score',
+  gem_efficiency_percent: 'gem_efficiency_percent',
+  bracelet_efficiency_percent: 'bracelet_efficiency_percent',
+  item_level: 'item_level',
+};
+
 /**
- * 그룹 전체 캐릭터 비교 (닉네임 join, spec_score 내림차순)
+ * 그룹 전체 캐릭터 비교 (닉네임 join, 선택한 랭킹 지표 내림차순)
  */
-export async function getAllCharactersForCompare() {
+export async function getAllCharactersForCompare(sortBy: CharacterRankingSortKey = 'spec_score') {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const sortColumn = CHARACTER_RANKING_SORT_COLUMNS[sortBy];
+  const request = supabase
     .from('characters')
     .select('*, profiles ( nickname, avatar_url )')
-    .order('spec_score', { ascending: false, nullsFirst: false });
+    .order(sortColumn, { ascending: false, nullsFirst: false });
+
+  if (sortBy !== 'spec_score') {
+    request.order('spec_score', { ascending: false, nullsFirst: false });
+  }
+  if (sortBy !== 'item_level') {
+    request.order('item_level', { ascending: false, nullsFirst: false });
+  }
+
+  const { data, error } = await request;
 
   if (error) throw new Error(error.message);
   return data ?? [];

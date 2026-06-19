@@ -1,9 +1,45 @@
 # 로스트아크 레이드 약속 관리 앱 — ROADMAP v3
 
-> v1(MVP·시간변경·반복·Realtime), v2(Discord 공유·표시명 안정화·일괄 삭제) 구현 완료 기준.  
-> v3은 두 가지 신규 기능을 추가한다:  
-> 1. **lopec.kr 기반 캐릭터 스펙 비교** — 그룹 멤버의 주요 캐릭터 스펙을 한 곳에서 비교.  
-> 2. **Discord 버튼 응답** — Discord에 공유된 약속 메시지에서 참석/불참/미정을 버튼으로 바로 선택.
+## ⚡ 빠른 상태 요약 (2026-06-19)
+
+| Phase | 상태 | 커밋 |
+|---|---|---|
+| v3-0 캐릭터 데이터 모델 + Edge Function | ✅ 완료 | `09a1a6b` |
+| v3-1 pg_cron 자동 갱신 + 수동 새로고침 | ✅ 완료 | `09a1a6b` |
+| v3-2 캐릭터 UI (`/characters` 페이지) | ✅ 완료 | `09a1a6b` |
+| v3-2.1 랭킹 정렬 지표 확장 (젬/팔찌 효율) | ✅ 완료 | this commit |
+| v3-3 Discord 버튼 응답 (Bot + Interaction) | 🚧 미시작 | — |
+
+### 완료된 파일 목록
+
+```
+supabase/migrations/20260619171923_add_characters.sql   # characters 테이블 + RLS
+supabase/migrations/20260619180500_add_character_efficiency_metrics.sql  # 젬/팔찌/각인/메인노드 효율 컬럼
+supabase/migrations/20260619180000_add_pg_cron_schedule.sql  # pg_cron job 등록
+supabase/functions/update-character-specs/index.ts      # lopec 파싱 + 효율 지표 + 공식 API 폴백
+lib/characters.ts                                       # CharacterRow, CharacterWithProfile 타입
+lib/queries.ts                                          # getMyCharacters(), getAllCharactersForCompare() 추가
+app/characters/actions.ts                               # addCharacter(), refreshCharacter(), removeCharacter()
+app/characters/page.tsx                                 # 서버 컴포넌트 — 내 캐릭터 + 그룹 비교
+app/characters/layout.tsx                               # SiteNav 사용
+app/events/layout.tsx                                   # SiteNav로 교체 (캐릭터 탭 추가)
+components/site-nav.tsx                                 # 공유 네비 (약속/캐릭터 탭, activeSection prop)
+components/character-section.tsx                        # 3슬롯 그리드 + 빈 슬롯 폼 토글
+components/character-card.tsx                           # 티어 배지, 환산점수, 새로고침/삭제
+components/character-form.tsx                           # 캐릭터 등록 폼
+components/character-compare-table.tsx                  # 그룹 비교 테이블 (overflow-x-auto)
+```
+
+### 주의사항 (pg_cron)
+`app.edge_function_url`, `app.service_role_key` DB 설정이 없으면 cron job이 Edge Function을 호출하지 못함.  
+Supabase 대시보드 → Project Settings → Database에서 수동 설정 필요.
+
+### 다음 작업: v3-3 Discord 버튼 응답
+섹션 5 참고. Bot + Interaction Endpoint 인프라가 필요하므로 Discord Developer Portal 설정 선행.
+
+---
+
+> v1(MVP·시간변경·반복·Realtime), v2(Discord 공유·표시명 안정화·일괄 삭제) 구현 완료 기준.
 
 ---
 
@@ -35,336 +71,54 @@
 
 ---
 
-## 2. Phase v3-0 — 캐릭터 데이터 모델 + 스크래핑 코어
+## 2. ✅ Phase v3-0 — 캐릭터 데이터 모델 + 스크래핑 코어 (완료)
 
-### 목표
-
-`characters` 테이블을 신설하고, lopec.kr HTML을 서버 사이드에서 파싱해 스펙 데이터를 수집하는 Supabase Edge Function을 구축한다. lopec 스크래핑 실패 시 공식 로스트아크 Open API로 폴백한다.
-
-### 왜 lopec.kr인가
-
-| 소스 | 장점 | 단점 |
-|---|---|---|
-| lopec.kr | 환산 점수(스펙 포인트)·티어 포함, 시각적으로 익숙 | 공개 API 없음 → DOM 파싱 필요, 구조 변경 시 취약 |
-| 공식 로아 Open API | 안정적·합법적 | 환산 점수 없음, 아이템레벨/직업만 제공 |
-
-→ **lopec 우선 파싱, 실패 시 공식 API 폴백** 방식을 채택한다.
-
-### 2.1 데이터 모델
-
-새 마이그레이션:
-
-```bash
-npx supabase migration new add_characters
-```
-
-```sql
--- ============================================================
--- characters: 캐릭터 스펙 저장
--- ============================================================
-create table public.characters (
-  id              uuid primary key default gen_random_uuid(),
-  user_id         uuid not null references public.profiles(id) on delete cascade,
-  character_name  text not null,
-  server_name     text,                  -- 서버 구분 (예: 카제로스)
-  class_name      text,                  -- 직업 (예: 악의 계승자)
-  item_level      numeric(8, 2),         -- 아이템 레벨 (예: 1765.83)
-  spec_score      numeric(10, 2),        -- 로펙 환산점수 (예: 4639.70)
-  tier            text,                  -- 티어명 (예: Diamond, Master)
-  combat_stats    jsonb,                 -- 전투 스탯 상세
-  source          text not null default 'lopec'
-                    check (source in ('lopec', 'official')),
-  source_url      text,                  -- 파싱 대상 URL
-  last_fetched_at timestamptz,           -- 마지막 성공 fetch 시각
-  fetch_error     text,                  -- 마지막 실패 메시지 (성공 시 null)
-  created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now()
-);
-
--- 사용자별 캐릭터명 중복 방지
-create unique index characters_user_name_uniq
-  on public.characters (user_id, lower(character_name));
-
--- 인덱스
-create index characters_user_id_idx on public.characters (user_id);
-create index characters_spec_score_idx on public.characters (spec_score desc nulls last);
-
--- updated_at 자동 갱신 (기존 set_updated_at() 재사용)
-create trigger characters_set_updated_at
-  before update on public.characters
-  for each row execute function public.set_updated_at();
-
--- 계정당 3개 초과 등록 방지 트리거
-create or replace function public.check_character_limit()
-returns trigger language plpgsql as $$
-begin
-  if (select count(*) from public.characters where user_id = new.user_id) >= 3 then
-    raise exception '캐릭터는 계정당 최대 3개까지 등록할 수 있습니다.';
-  end if;
-  return new;
-end;
-$$;
-
-create trigger characters_limit_check
-  before insert on public.characters
-  for each row execute function public.check_character_limit();
-```
-
-```sql
--- RLS
-alter table public.characters enable row level security;
-grant select, insert, update, delete on public.characters to authenticated;
-
--- 전체 인증 사용자가 읽기 가능 (그룹 비교용)
-create policy "characters_select_authenticated"
-  on public.characters for select
-  to authenticated using (true);
-
--- 본인 캐릭터만 insert/update/delete
-create policy "characters_insert_own"
-  on public.characters for insert
-  to authenticated with check ((select auth.uid()) = user_id);
-
-create policy "characters_update_own"
-  on public.characters for update
-  to authenticated
-  using  ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
-
-create policy "characters_delete_own"
-  on public.characters for delete
-  to authenticated using ((select auth.uid()) = user_id);
-```
-
-`combat_stats` JSONB 예시:
-
-```json
-{
-  "attackPower":       { "level": 44, "pct": 1.61 },
-  "additionalDamage":  { "level": 45, "pct": 3.63 },
-  "bossDamage":        { "level": 34, "pct": 2.83 }
-}
-```
-
-### 2.2 스크래핑 Edge Function
-
-권장 파일:
-
-- `supabase/functions/update-character-specs/index.ts` (Deno 런타임)
-
-입력 (HTTP POST body):
-
-```ts
-{
-  ids?: string[];   // 특정 character id 배열. 없으면 전체 대상
-}
-```
-
-로직:
-
-1. Supabase Admin 클라이언트(service role) 초기화.
-2. `ids` 있으면 해당 캐릭터만, 없으면 모든 `characters` 행 조회.
-3. 각 캐릭터에 대해 **lopec 파싱 시도**:
-   - `https://lopec.kr/character/specPoint/{encodeURIComponent(character_name)}` GET.
-   - `deno-dom` 또는 정규식으로 `spec_score`, `item_level`, `class_name`, `tier`, `combat_stats` 추출.
-   - **셀렉터는 구현 시점에 페이지 DOM 직접 확인 후 확정.** (현재 페이지 조사 결과: 서버 렌더 HTML 확인.)
-4. lopec 파싱 실패(HTTP 4xx/5xx, 파싱 에러, 빈 값) 시 **공식 로아 Open API 폴백**:
-   - `https://developer-lostark.game.onstove.com/characters/{name}/siblings` 또는 `/armories/characters/{name}/profiles`
-   - `item_level`, `class_name` 추출. `source = 'official'`, `fetch_error` 기록.
-5. `characters` 테이블 upsert: `last_fetched_at = now()`, 성공 시 `fetch_error = null`.
-6. 결과 요약 JSON 반환.
-
-보안 주의:
-
-- Edge Function 내부에서만 service role key 사용.
-- 입력 `ids`는 존재하는 캐릭터 id인지 검증.
-- lopec.kr 요청에 적절한 `User-Agent` + 요청 간 소량 지연(레이트리밋 방지).
-
-환경변수 (`supabase secrets set`):
-
-```env
-LOSTARK_API_KEY=...         # 공식 로아 Open API 키
-SUPABASE_SERVICE_ROLE_KEY=... # Edge Function에 자동 주입됨
-SUPABASE_URL=...              # Edge Function에 자동 주입됨
-```
-
-### 완료 기준
-
-- [x] `characters` 테이블 마이그레이션 적용. (`20260619171923_add_characters.sql`, `npx supabase db push --linked` 완료)
-- [ ] Edge Function 로컬 실행 성공: `npx supabase functions serve update-character-specs`.
-- [ ] 캐릭터명 입력 → lopec 데이터 파싱 확인.
-- [ ] 잘못된 캐릭터명 → `fetch_error` 기록 + 공식 API 폴백 확인.
-- [ ] 4개 등록 시도 → 트리거 예외 발생 확인.
-- [x] `npm run lint`, `npm run build`
+- `characters` 테이블: `supabase/migrations/20260619171923_add_characters.sql` (원격 적용 완료)
+  - 컬럼: `id, user_id, character_name, server_name, class_name, item_level, spec_score, tier, combat_stats(jsonb), source(lopec|official), source_url, last_fetched_at, fetch_error`
+  - 효율 확장: `gem_efficiency_percent`, `bracelet_efficiency_percent`, `engraving_efficiency_percent`, `main_node_efficiency_percent`, `efficiency_stats(jsonb)` (`20260619180500_add_character_efficiency_metrics.sql`, 원격 적용 완료)
+  - RLS: 전체 인증 사용자 SELECT, 본인만 INSERT/UPDATE/DELETE
+  - 트리거: `check_character_limit()` — 계정당 3개 초과 시 예외
+- Edge Function: `supabase/functions/update-character-specs/index.ts` (Deno)
+  - `POST { ids?: string[] }` — 특정 캐릭터 또는 전체 갱신
+  - lopec.kr HTML 파싱 → 실패 시 공식 로아 API 폴백
+  - `/character/specPoint`에서 환산점수/티어/젬 옵션을 수집하고, `/character/efficiency`에서 팔찌·각인·메인노드 효율 카드를 수집
+  - lopec 파싱 셀렉터 상세: `memory/reference_lopec_parsing.md` 참조
+- 환경변수: `LOSTARK_API_KEY` (supabase secrets set), `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_URL` 자동 주입
 
 ---
 
-## 3. Phase v3-1 — 자동 / 수동 업데이트
+## 3. ✅ Phase v3-1 — 자동 / 수동 업데이트 (완료)
 
-### 목표
-
-스펙 데이터를 1시간마다 자동 갱신하고, 사용자가 `/characters` 화면에서 수동으로 즉시 새로고침할 수 있게 한다.
-
-### 3.1 자동 갱신 (pg_cron + pg_net)
-
-새 마이그레이션:
-
-```bash
-npx supabase migration new schedule_character_refresh
-```
-
-```sql
--- pg_cron, pg_net 확장 활성 (Supabase 대시보드에서도 가능)
-create extension if not exists pg_cron with schema extensions;
-create extension if not exists pg_net  with schema extensions;
-
--- 1시간마다 Edge Function 호출
-select cron.schedule(
-  'refresh-character-specs',
-  '0 * * * *',
-  $$
-    select net.http_post(
-      url := current_setting('app.edge_function_url') || '/update-character-specs',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.service_role_key')
-      ),
-      body := '{}'::jsonb
-    );
-  $$
-);
-```
-
-주의:
-
-- `app.edge_function_url`, `app.service_role_key`는 Supabase 대시보드 → Project Settings → Database에서 설정하거나, 마이그레이션 내에서 `alter database ... set app.xxx = '...'` 으로 주입.
-- 대안: Supabase Dashboard → Cron Jobs UI에서 직접 등록(코드 없이).
-
-### 3.2 수동 갱신 (서버 액션)
-
-새 파일:
-
-- `app/characters/actions.ts`
-
-```ts
-// 단일 캐릭터 수동 새로고침
-export async function refreshCharacter(characterId: string): Promise<{ error?: string }>
-
-// 내 캐릭터 등록
-export async function addCharacter(characterName: string, serverName?: string): Promise<{ error?: string; id?: string }>
-
-// 내 캐릭터 삭제
-export async function removeCharacter(characterId: string): Promise<{ error?: string }>
-```
-
-`refreshCharacter` 내부:
-
-1. 로그인 사용자 확인.
-2. `character.user_id === user.id` 검증.
-3. `supabase.functions.invoke('update-character-specs', { body: { ids: [characterId] } })`.
-4. 결과 반환.
-
-스크래핑 로직은 Edge Function 단일 출처. 서버 액션은 호출만 담당.
-
-### 완료 기준
-
-- `select * from cron.job` 에서 `refresh-character-specs` 등록 확인.
-- 수동 새로고침 버튼 클릭 → `last_fetched_at` 갱신 확인.
-- 타인의 캐릭터 새로고침 시도 → 거절 확인.
+- pg_cron job `refresh-character-specs` (`0 * * * *`) 원격 DB 등록 완료
+  - 마이그레이션: `20260619180000_add_pg_cron_schedule.sql`
+  - ⚠️ **`app.edge_function_url`, `app.service_role_key` DB 설정 별도 필요** (Supabase 대시보드 → Project Settings → Database)
+- 서버 액션: `app/characters/actions.ts`
+  - `addCharacter(name, server?)` — insert + 즉시 Edge Function 호출
+  - `refreshCharacter(id)` — 소유권 확인 후 Edge Function 호출
+  - `removeCharacter(id)` — 본인 캐릭터만 삭제
 
 ---
 
-## 4. Phase v3-2 — 캐릭터 UI
+## 4. ✅ Phase v3-2 — 캐릭터 UI (완료)
 
-### 목표
+- 라우트: `/characters` (`app/characters/page.tsx`, `layout.tsx`)
+- 공유 네비: `components/site-nav.tsx` — `activeSection` prop으로 약속/캐릭터 탭 구분
+  - `app/events/layout.tsx`, `app/characters/layout.tsx` 모두 SiteNav 사용
+- 컴포넌트:
+  - `character-section.tsx` — 3슬롯 그리드, 빈 슬롯 클릭 → 폼 토글 (클라이언트)
+  - `character-card.tsx` — 티어 배지(색상별), 환산점수, 새로고침/삭제(2단계 확인) (클라이언트)
+  - `character-form.tsx` — 캐릭터명·서버명 입력, 등록 중 로딩 표시 (클라이언트)
+  - `character-compare-table.tsx` — spec_score 내림차순, overflow-x-auto (서버)
+- 쿼리: `lib/queries.ts` — `getMyCharacters(userId)`, `getAllCharactersForCompare(sortBy)`
+- 타입: `lib/characters.ts` — `CharacterRow`, `CharacterWithProfile`, `CharacterRankingSortKey`
 
-`/characters` 페이지에서 내 캐릭터를 등록/관리하고, 그룹 전체의 스펙을 비교 테이블로 볼 수 있게 한다.
+### v3-2.1 랭킹 지표 확장
 
-### 4.1 페이지 구조
-
-- `app/characters/page.tsx` (서버 컴포넌트)
-  - 현재 로그인 사용자의 캐릭터 목록 + 그룹 전체 비교 테이블을 한 화면에 표시.
-  - 로그인 여부 확인 → 비로그인 시 `/auth/login`으로 리다이렉트.
-
-### 4.2 신규 컴포넌트
-
-| 컴포넌트 | 역할 |
-|---|---|
-| `components/character-form.tsx` | 캐릭터명·서버명 입력 폼. 제출 시 `addCharacter()` 호출 + 즉시 1회 fetch |
-| `components/character-card.tsx` | 등록된 캐릭터 1개 표시. 직업·아이템레벨·환산점수·티어·마지막 갱신 시각. 삭제/새로고침 버튼 |
-| `components/refresh-character-button.tsx` | 클라이언트 컴포넌트. 클릭 → `refreshCharacter()` 서버 액션 호출. 로딩 상태 표시 |
-| `components/character-compare-table.tsx` | 그룹 전체 캐릭터를 `spec_score` 내림차순 정렬한 비교 테이블 |
-
-### 4.3 쿼리 헬퍼
-
-`lib/queries.ts`에 추가:
-
-```ts
-// 내 캐릭터 목록 (최대 3개)
-export async function getMyCharacters(userId: string): Promise<CharacterRow[]>
-
-// 그룹 전체 비교용 (닉네임 join 포함, spec_score 내림차순)
-export async function getAllCharactersForCompare(): Promise<CharacterWithProfile[]>
-```
-
-타입 정의:
-
-- `lib/characters.ts` 신규 파일
-
-```ts
-export type CharacterRow = {
-  id: string;
-  user_id: string;
-  character_name: string;
-  server_name: string | null;
-  class_name: string | null;
-  item_level: number | null;
-  spec_score: number | null;
-  tier: string | null;
-  combat_stats: Record<string, { level: number; pct: number }> | null;
-  source: 'lopec' | 'official';
-  last_fetched_at: string | null;
-  fetch_error: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type CharacterWithProfile = CharacterRow & {
-  profiles: { nickname: string | null; avatar_url: string | null } | null;
-};
-```
-
-### 4.4 UI 상세
-
-**내 캐릭터 섹션**:
-
-- 최대 3슬롯 그리드(모바일 1열, `sm:` 이상 3열).
-- 각 카드에:
-  - 직업 · 캐릭터명 · 아이템레벨
-  - 로펙 점수 · 티어 (lopec 소스면 표시, official 소스면 "점수 없음")
-  - `last_fetched_at` 시각 + `fetch_error` 있으면 에러 메시지 뱃지
-  - 수동 새로고침 버튼(⟳) + 삭제 버튼
-- 슬롯 3개 미만이면 빈 슬롯에 "+ 캐릭터 추가" CTA 표시.
-
-**그룹 비교 섹션**:
-
-- 테이블 또는 카드 목록: 닉네임(`getDisplayName` 재사용) · 캐릭터명 · 직업 · 아이템레벨 · 환산점수 · 소스.
-- `spec_score` 내림차순 정렬. null 점수는 하단.
-- 모바일 360px: 테이블은 `overflow-x: auto` 컨테이너로 가로 스크롤. 또는 카드 스택으로 전환.
-
-**네비게이션**:
-
-- `components/auth-button.tsx` 또는 `app/events/layout.tsx` 공통 네비에 `/characters` 링크 추가.
-
-### 완료 기준
-
-- `/characters`에서 캐릭터 등록 → lopec 스펙 즉시 fetch → 표시 확인.
-- 4번째 등록 시도 → "최대 3개" 에러 표시.
-- 수동 새로고침 → 스펙 갱신 확인.
-- 그룹 비교 테이블에 다른 멤버 캐릭터도 표시되는지 확인.
-- `fetch_error` 케이스(잘못된 캐릭터명): 마지막 성공 데이터 유지 + 에러 표시.
-- 모바일 360px에서 가로 스크롤 또는 카드 스택으로 깨지지 않는지 확인.
-- `npm run lint`, `npm run build`
+- `/characters/ranking`에서 정렬 탭 추가: 환산점수 / 젬 효율 / 팔찌 효율 / 아이템레벨
+- 랭킹 테이블에 젬 효율, 팔찌 효율, 각인 효율 컬럼 추가
+- 젬 효율은 lopec `specPoint`의 활성 젬 옵션(`ArkgridData_topGemEffect`) 퍼센트 합계로 계산
+- 팔찌·각인·메인노드 효율은 lopec `efficiency` 페이지 카드 값에서 수집
+- 원격 DB 마이그레이션 및 `update-character-specs` Edge Function 배포 완료
 
 ---
 
