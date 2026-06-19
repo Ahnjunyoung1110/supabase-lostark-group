@@ -6,6 +6,7 @@ import { isUpcoming } from '@/lib/format';
 import { getDisplayName } from '@/lib/profile';
 export { aggregateResponseCounts } from '@/lib/event-utils';
 export type { ResponseCounts } from '@/lib/event-utils';
+export type { CharacterRow, CharacterWithProfile } from '@/lib/characters';
 
 // ——————————————————————————————
 // 타입 정의
@@ -145,6 +146,35 @@ export async function getEventWithResponses(id: string): Promise<EventDetail | n
 // ——————————————————————————————
 // 집계 순수 함수
 // ——————————————————————————————
+
+/**
+ * 내 캐릭터 목록 (최대 3개)
+ */
+export async function getMyCharacters(userId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('characters')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/**
+ * 그룹 전체 캐릭터 비교 (닉네임 join, spec_score 내림차순)
+ */
+export async function getAllCharactersForCompare() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('characters')
+    .select('*, profiles ( nickname, avatar_url )')
+    .order('spec_score', { ascending: false, nullsFirst: false });
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
 
 /**
  * 응답 배열을 상태별 멤버 명단으로 그룹핑
