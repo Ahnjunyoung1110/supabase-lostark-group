@@ -64,21 +64,12 @@ export async function refreshCharacter(characterId: string): Promise<ActionResul
   if (fetchErr || !char) return { error: '캐릭터를 찾을 수 없습니다.' };
   if (char.user_id !== user.id) return { error: '권한이 없습니다.' };
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/update-character-specs`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${serviceRoleKey}`,
-    },
-    body: JSON.stringify({ ids: [characterId] }),
+  const { error: fnError } = await supabase.functions.invoke('update-character-specs', {
+    body: { ids: [characterId] },
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    return { error: `스펙 업데이트 실패: ${text || res.status}` };
+  if (fnError) {
+    return { error: `스펙 업데이트 실패: ${fnError.message}` };
   }
 
   revalidatePath('/characters');
