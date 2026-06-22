@@ -7,6 +7,7 @@ import {
   buildEventDetailUrl,
   normalizeSiteUrl,
 } from '@/lib/discord/share-message';
+import { buildRecurrenceRule, buildRecurringOccurrences } from '@/lib/event-utils';
 import { revalidatePath } from 'next/cache';
 
 type ActionResult = {
@@ -14,54 +15,6 @@ type ActionResult = {
   redirectTo?: string;
 };
 
-// ——————————————————————————————
-// 반복 약속 생성 유틸리티
-// ——————————————————————————————
-const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
-
-function buildRecurrenceRule(weekdays: number[], untilRaw: string | null): string {
-  const byDay = weekdays.map((day) => WEEKDAY_CODES[day]).join(',');
-  const parts = ['FREQ=WEEKLY', `BYDAY=${byDay}`];
-  if (untilRaw) {
-    const until = new Date(`${untilRaw}T23:59:59`).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-    parts.push(`UNTIL=${until}`);
-  } else {
-    parts.push('COUNT=3');
-  }
-  return parts.join(';');
-}
-
-function buildRecurringOccurrences(
-  scheduledAtRaw: string,
-  weekdays: number[],
-  untilRaw: string | null
-): string[] {
-  const start = new Date(scheduledAtRaw);
-  const until = untilRaw ? new Date(`${untilRaw}T23:59:59`) : null;
-  const occurrences: string[] = [];
-
-  for (let week = 0; ; week++) {
-    if (!until && week >= 3) break;
-
-    // start + week*7 는 해당 주의 가장 이른 기준일 — 이미 until 초과 시 중단
-    const weekBase = new Date(start);
-    weekBase.setDate(start.getDate() + week * 7);
-    if (until && weekBase > until) break;
-
-    for (const weekday of weekdays) {
-      const occurrence = new Date(start);
-      const daysUntilWeekday = (weekday - start.getDay() + 7) % 7;
-      occurrence.setDate(start.getDate() + daysUntilWeekday + week * 7);
-
-      if (occurrence < start) continue;
-      if (until && occurrence > until) continue;
-
-      occurrences.push(occurrence.toISOString());
-    }
-  }
-
-  return Array.from(new Set(occurrences)).sort();
-}
 
 function getProfileDefaults(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }) {
   const metadata = user.user_metadata ?? {};

@@ -30,7 +30,8 @@ export async function addCharacter(
     .single();
 
   if (insertErr) {
-    if (insertErr.message.includes('최대 3개')) {
+    // V0001: check_character_limit 트리거 커스텀 SQLSTATE
+    if (insertErr.code === 'V0001') {
       return { error: '캐릭터는 최대 3개까지 등록할 수 있습니다.' };
     }
     if (insertErr.code === '23505') {

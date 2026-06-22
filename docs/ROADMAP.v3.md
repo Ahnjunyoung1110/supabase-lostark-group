@@ -1,14 +1,15 @@
 # 로스트아크 레이드 약속 관리 앱 — ROADMAP v3
 
-## ⚡ 빠른 상태 요약 (2026-06-19)
+## ⚡ 빠른 상태 요약 (2026-06-22)
 
 | Phase | 상태 | 커밋 |
 |---|---|---|
 | v3-0 캐릭터 데이터 모델 + Edge Function | ✅ 완료 | `09a1a6b` |
 | v3-1 pg_cron 자동 갱신 + 수동 새로고침 | ✅ 완료 | `09a1a6b` |
 | v3-2 캐릭터 UI (`/characters` 페이지) | ✅ 완료 | `09a1a6b` |
-| v3-2.1 랭킹 정렬 지표 확장 (젬/팔찌 효율) | ✅ 완료 | this commit |
-| v3-3 Discord 버튼 응답 (Bot + Interaction) | 🚧 코드 구현 완료 / 수동 인프라 검증 대기 | this commit |
+| v3-2.1 랭킹 정렬 지표 확장 (젬/팔찌 효율) | ✅ 완료 | `a37972d` |
+| v3-2.2 젬 효율 계산 정확도 수정 | ✅ 완료 | `95d9df8` |
+| v3-3 Discord 버튼 응답 (Bot + Interaction) | 🚧 코드 완료 / 수동 인프라 검증 대기 | `acc2837` |
 
 ### 완료된 파일 목록
 
@@ -39,7 +40,14 @@ app/api/discord/interactions/route.ts                   # Discord 버튼 Interac
 현재 원격 `refresh-character-specs` cron은 Edge Function URL을 직접 호출하도록 재등록되어 있으며, 점검 시 `cron.job_run_details`와 `characters.last_fetched_at`을 함께 확인한다.
 
 ### 다음 작업: v3-3 Discord 버튼 응답 수동 검증
-코드 구현은 완료됐다. 남은 작업은 `npx supabase db push --linked`, Discord Developer Portal Interaction Endpoint 등록/Verify, Bot 초대 후 실제 버튼 클릭 검증이다.
+
+코드 구현 완료 (`acc2837`). 남은 작업:
+
+1. `npx supabase db push --linked` — `20260619190000_add_discord_user_id.sql` 원격 적용
+2. Discord Developer Portal에서 Application 생성 + Interaction Endpoint URL 등록/Verify
+3. 환경변수 설정: `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`
+4. Bot 서버 초대
+5. 실제 버튼 클릭 → `event_responses` 반영 확인
 
 ---
 

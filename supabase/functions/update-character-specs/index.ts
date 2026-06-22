@@ -303,7 +303,8 @@ async function computeLopecGemEfficiency(html: string, pageUrl: string): Promise
           pointEfficiency: result.pointEfficiency ?? null,
         }
       : null;
-  } catch {
+  } catch (err) {
+    console.error("[update-character-specs] gem 효율 계산 실패:", err);
     return null;
   } finally {
     globals.self = previousSelf;
@@ -352,8 +353,9 @@ async function fetchLopec(characterName: string): Promise<SpecResult> {
     try {
       await sleep(REQUEST_DELAY_MS);
       efficiencyStats = parseEfficiencyHtml(await fetchHtml(efficiencyUrl));
-    } catch {
+    } catch (err) {
       // 효율 페이지는 보조 데이터이므로 실패해도 기본 스펙 갱신은 유지한다.
+      console.error("[update-character-specs] 효율 페이지 파싱 실패:", err);
       efficiencyStats = null;
     }
 
@@ -462,7 +464,8 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({}));
     ids = Array.isArray(body?.ids) ? body.ids : undefined;
-  } catch {
+  } catch (err) {
+    console.error("[update-character-specs] 요청 body 파싱 실패:", err);
     ids = undefined;
   }
 
