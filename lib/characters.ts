@@ -1,6 +1,11 @@
 export type CharacterEfficiencyStats = {
   cards?: Record<string, number>;
   gemEffects?: Record<string, { level: number | null; pct: number | null }>;
+  gemEfficiencyBreakdown?: {
+    efficiency: number;
+    optionEfficiency?: number | null;
+    pointEfficiency?: number | null;
+  };
 };
 
 export type CharacterRankingSortKey =

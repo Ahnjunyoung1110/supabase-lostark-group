@@ -14,6 +14,11 @@ interface CharacterRow {
 interface EfficiencyStats {
   cards: Record<string, number>;
   gemEffects: Record<string, { level: number | null; pct: number | null }>;
+  gemEfficiencyBreakdown?: {
+    efficiency: number;
+    optionEfficiency?: number | null;
+    pointEfficiency?: number | null;
+  };
 }
 
 interface SpecResult {
@@ -134,6 +139,181 @@ function parseEfficiencyHtml(html: string): EfficiencyStats | null {
   return { cards, gemEffects: {} };
 }
 
+type LopecWebpackModule = (module: { exports: Record<string, unknown> }, exports: Record<string, unknown>, require: LopecRequire) => void;
+type LopecRequire = ((id: number | string) => Record<string, unknown>) & {
+  d: (exports: Record<string, unknown>, definition: Record<string, () => unknown>) => void;
+  r: (exports: Record<string, unknown>) => void;
+  n: (module: Record<string, unknown>) => (() => unknown) & { a?: () => unknown };
+  o: (obj: Record<string, unknown>, prop: string) => boolean;
+  O: (...args: unknown[]) => unknown;
+};
+
+type LopecParser = {
+  profile?: { supportCheck?: boolean };
+};
+
+const lopecChunkCache = new Map<string, string>();
+
+function extractFlightPayload(html: string): string {
+  const scriptPattern = /<script>self\.__next_f\.push\(([\s\S]*?)\)<\/script>/g;
+  const payloads: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = scriptPattern.exec(html)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]) as [number, string];
+      if (typeof parsed[1] === "string") payloads.push(parsed[1]);
+    } catch {
+      // Ignore non-flight scripts. Older server-rendered values still cover the fallback path.
+    }
+  }
+  return payloads.join("\n");
+}
+
+function extractJsonObject(source: string, start: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < source.length; i += 1) {
+    const ch = source[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function extractLopecParser(html: string): LopecParser | null {
+  const flight = extractFlightPayload(html);
+  const keyIndex = flight.indexOf('"lostarkParser":');
+  if (keyIndex < 0) return null;
+  const start = flight.indexOf("{", keyIndex);
+  if (start < 0) return null;
+  const json = extractJsonObject(flight, start);
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as LopecParser;
+  } catch {
+    return null;
+  }
+}
+
+function createLopecRequire(modules: Record<string, LopecWebpackModule>): LopecRequire {
+  const cache: Record<string, { exports: Record<string, unknown> }> = {};
+  const require = ((id: number | string) => {
+    const key = String(id);
+    if (cache[key]) return cache[key].exports;
+    const moduleFn = modules[key];
+    if (!moduleFn) throw new Error(`lopec module ${key} not found`);
+    const webpackModule = { exports: {} as Record<string, unknown> };
+    cache[key] = webpackModule;
+    moduleFn(webpackModule, webpackModule.exports, require);
+    return webpackModule.exports;
+  }) as LopecRequire;
+  require.d = (exports, definition) => {
+    for (const key of Object.keys(definition)) {
+      Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+    }
+  };
+  require.r = (exports) => {
+    Object.defineProperty(exports, "__esModule", { value: true });
+  };
+  require.n = (module) => {
+    const getter = module && module.__esModule ? () => module.default : () => module;
+    (getter as (() => unknown) & { a?: () => unknown }).a = getter;
+    return getter as (() => unknown) & { a?: () => unknown };
+  };
+  require.o = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop);
+  require.O = (...args: unknown[]) => {
+    const maybeCallback = args[args.length - 1];
+    return typeof maybeCallback === "function" ? (maybeCallback as () => unknown)() : undefined;
+  };
+  return require;
+}
+
+async function fetchCachedText(url: string): Promise<string> {
+  const cached = lopecChunkCache.get(url);
+  if (cached) return cached;
+  const text = await fetchHtml(url);
+  lopecChunkCache.set(url, text);
+  return text;
+}
+
+async function computeLopecGemEfficiency(html: string, pageUrl: string): Promise<EfficiencyStats["gemEfficiencyBreakdown"] | null> {
+  const parser = extractLopecParser(html);
+  if (!parser) return null;
+
+  const modules: Record<string, LopecWebpackModule> = {};
+  const globals = globalThis as {
+    self?: unknown;
+    webpackChunk_N_E?: unknown;
+    window?: unknown;
+    document?: unknown;
+    location?: unknown;
+  };
+  const previousSelf = globals.self;
+  const previousWebpackChunk = globals.webpackChunk_N_E;
+  const previousWindow = globals.window;
+  const previousDocument = globals.document;
+  const previousLocation = globals.location;
+  globals.self = globalThis;
+  const webpackChunks = [] as unknown[] & {
+    push: (chunk: [unknown, Record<string, LopecWebpackModule>]) => number;
+  };
+  webpackChunks.push = (chunk: [unknown, Record<string, LopecWebpackModule>]) => {
+    Object.assign(modules, chunk[1]);
+    return 0;
+  };
+  globals.webpackChunk_N_E = webpackChunks;
+  globals.window = globalThis;
+  globals.document = globals.document ?? {};
+  globals.location = globals.location ?? new URL(pageUrl);
+
+  try {
+    const scriptUrls = Array.from(html.matchAll(/<script[^>]+src="([^"]+\.js)"/g))
+      .map((match) => new URL(decodeHtml(match[1]), pageUrl).href);
+    for (const scriptUrl of scriptUrls) {
+      const chunk = await fetchCachedText(scriptUrl);
+      // lopec computes the rendered gem efficiency in client chunks. We evaluate only the module
+      // registry wrapper and intentionally ignore Next.js entry callbacks in createLopecRequire().
+      new Function(chunk)();
+    }
+
+    const require = createLopecRequire(modules);
+    const calculatorModule = parser.profile?.supportCheck ? require(38564) : require(32142);
+    const calculator = parser.profile?.supportCheck ? calculatorModule.m9 : calculatorModule.cA;
+    if (typeof calculator !== "function") return null;
+    const result = calculator(parser) as {
+      efficiency?: number | null;
+      optionEfficiency?: number | null;
+      pointEfficiency?: number | null;
+    };
+    return typeof result.efficiency === "number"
+      ? {
+          efficiency: result.efficiency,
+          optionEfficiency: result.optionEfficiency ?? null,
+          pointEfficiency: result.pointEfficiency ?? null,
+        }
+      : null;
+  } catch {
+    return null;
+  } finally {
+    globals.self = previousSelf;
+    globals.webpackChunk_N_E = previousWebpackChunk;
+    globals.window = previousWindow;
+    globals.document = previousDocument;
+    globals.location = previousLocation;
+  }
+}
+
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
@@ -167,6 +347,7 @@ async function fetchLopec(characterName: string): Promise<SpecResult> {
     }
 
     const specGemEffects = parseGemEffectsFromSpecHtml(html);
+    const computedGemEfficiency = await computeLopecGemEfficiency(html, specUrl);
     let efficiencyStats: EfficiencyStats | null = null;
     try {
       await sleep(REQUEST_DELAY_MS);
@@ -187,17 +368,19 @@ async function fetchLopec(characterName: string): Promise<SpecResult> {
     const fallbackGemEfficiency = gemEffectValues.length > 0
       ? Number(gemEffectValues.reduce((sum, pct) => sum + pct, 0).toFixed(2))
       : null;
-    const gem_efficiency_percent = pickCardValue(cards, [
-      /젬.*효율/,
-      /보석.*효율/,
-      /겁화.*효율/,
-      /작열.*효율/,
-    ]) ?? fallbackGemEfficiency;
+    const gem_efficiency_percent = computedGemEfficiency?.efficiency
+      ?? pickCardValue(cards, [
+        /젬.*효율/,
+        /보석.*효율/,
+        /겁화.*효율/,
+        /작열.*효율/,
+      ])
+      ?? fallbackGemEfficiency;
     const bracelet_efficiency_percent = pickCardValue(cards, [/팔찌.*효율/]);
     const engraving_efficiency_percent = pickCardValue(cards, [/각인.*효율/]);
     const main_node_efficiency_percent = pickCardValue(cards, [/메인\s*노드.*효율/, /메인노드.*효율/]);
-    const mergedEfficiencyStats = Object.keys(cards).length > 0 || Object.keys(gemEffects).length > 0
-      ? { cards, gemEffects }
+    const mergedEfficiencyStats = Object.keys(cards).length > 0 || Object.keys(gemEffects).length > 0 || computedGemEfficiency
+      ? { cards, gemEffects, ...(computedGemEfficiency ? { gemEfficiencyBreakdown: computedGemEfficiency } : {}) }
       : null;
 
     return {
