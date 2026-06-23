@@ -7,7 +7,7 @@ import { getDisplayName } from '@/lib/profile';
 export { aggregateResponseCounts } from '@/lib/event-utils';
 export type { ResponseCounts } from '@/lib/event-utils';
 import type { CharacterRankingSortKey } from '@/lib/characters';
-export type { CharacterRow, CharacterWithProfile } from '@/lib/characters';
+export type { CharacterRow, CharacterWithProfile, CharacterSnapshotRow } from '@/lib/characters';
 
 // ——————————————————————————————
 // 타입 정의
@@ -189,6 +189,36 @@ export async function getAllCharactersForCompare(sortBy: CharacterRankingSortKey
   }
 
   const { data, error } = await request;
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/**
+ * ID로 캐릭터 단건 조회 (상세 페이지 헤더용, 프로필 join)
+ */
+export async function getCharacterById(id: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('characters')
+    .select('*, profiles ( nickname, avatar_url )')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * 캐릭터 스펙 이력 (시간 오름차순, 그래프용)
+ */
+export async function getCharacterSnapshots(characterId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('character_snapshots')
+    .select('*')
+    .eq('character_id', characterId)
+    .order('fetched_at', { ascending: true });
 
   if (error) throw new Error(error.message);
   return data ?? [];

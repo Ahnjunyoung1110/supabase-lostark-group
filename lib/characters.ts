@@ -60,3 +60,20 @@ export type CharacterRow = {
 export type CharacterWithProfile = CharacterRow & {
   profiles: { nickname: string | null; avatar_url: string | null } | null;
 };
+
+export type CharacterSnapshotRow = {
+  id: string;
+  character_id: string;
+  user_id: string;
+  item_level: number | null;
+  spec_score: number | null;
+  tier: string | null;
+  class_name: string | null;
+  gem_efficiency_percent: number | null;
+  bracelet_efficiency_percent: number | null;
+  engraving_efficiency_percent: number | null;
+  main_node_efficiency_percent: number | null;
+  source: string | null;
+  fetched_at: string;
+  created_at: string;
+};

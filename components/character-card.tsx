@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, Trash2, AlertCircle } from 'lucide-react';
+import { RefreshCw, Trash2, AlertCircle, History } from 'lucide-react';
 import { refreshCharacter, removeCharacter } from '@/app/characters/actions';
 import type { CharacterRow } from '@/lib/characters';
 import { cn } from '@/lib/utils';
@@ -168,6 +169,17 @@ export function CharacterCard({ character }: CharacterCardProps) {
                   <RefreshCw className="w-3.5 h-3.5" />
                 )}
                 새로고침
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-primary"
+                asChild
+                title="스펙 이력 보기"
+              >
+                <Link href={`/characters/${character.id}`}>
+                  <History className="w-3.5 h-3.5" />
+                </Link>
               </Button>
               <Button
                 variant="ghost"

@@ -557,6 +557,37 @@ Deno.serve(async (req: Request) => {
     if (upsertErr) {
       results.push({ id: char.id, character_name: char.character_name, status: "error", error: upsertErr.message });
     } else {
+      // 스냅샷 기록: 직전 스냅샷과 값이 다를 때만 INSERT
+      const { data: lastSnap } = await supabase
+        .from("character_snapshots")
+        .select("item_level, spec_score")
+        .eq("character_id", char.id)
+        .order("fetched_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const hasChanged =
+        !lastSnap ||
+        Number(lastSnap.item_level) !== specResult.item_level ||
+        Number(lastSnap.spec_score) !== specResult.spec_score;
+
+      if (hasChanged) {
+        await supabase.from("character_snapshots").insert({
+          character_id: char.id,
+          user_id: char.user_id,
+          item_level: specResult.item_level,
+          spec_score: specResult.spec_score,
+          tier: specResult.tier,
+          class_name: specResult.class_name,
+          gem_efficiency_percent: specResult.gem_efficiency_percent,
+          bracelet_efficiency_percent: specResult.bracelet_efficiency_percent,
+          engraving_efficiency_percent: specResult.engraving_efficiency_percent,
+          main_node_efficiency_percent: specResult.main_node_efficiency_percent,
+          source: specResult.source,
+          fetched_at: new Date().toISOString(),
+        });
+      }
+
       results.push({ id: char.id, character_name: char.character_name, status: "ok" });
     }
   }
